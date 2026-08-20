@@ -1,0 +1,189 @@
+import { escapeHtml, normalizeQuestion, loadQuestionBank, saveQuestionToBank } from './api.js';
+
+const state = {
+  subject: null,
+  method: null,
+  question: '',
+  image: null,
+  answer: null
+};
+
+const subjectButtons = Array.from(document.querySelectorAll('.subject'));
+const methodButtons = Array.from(document.querySelectorAll('.method'));
+const questionInput = document.getElementById('question');
+const resultBox = document.getElementById('result');
+const bankBox = document.getElementById('bank');
+const previewText = document.getElementById('previewText');
+const photoInput = document.getElementById('photo');
+const photoPreview = document.getElementById('preview');
+const photoStatus = document.getElementById('photoStatus');
+
+state.subject = 'math';
+state.method = 'auto';
+
+function chooseSubject(subjectId) {
+  state.subject = subjectId;
+  subjectButtons.forEach((button) => {
+    const isActive = button.dataset.subject === subjectId;
+    button.classList.toggle('active', isActive);
+  });
+}
+
+function chooseMethod(methodName) {
+  state.method = methodName;
+  methodButtons.forEach((button) => {
+    const isActive = button.dataset.method === methodName;
+    button.classList.toggle('active', isActive);
+  });
+}
+
+function buildAnswer() {
+  const text = normalizeQuestion(state.question);
+  const subjectLabel = {
+    math: '數學',
+    chinese: '國文',
+    english: '英文',
+    electric: '基本電學',
+    electronics: '電子學',
+    digital: '數位邏輯',
+    programming: '程式設計',
+    micro: '微處理機'
+  }[state.subject] || '一般題目';
+
+  if (!text) {
+    return '<p class="small">請先輸入題目再點選解題。</p>';
+  }
+
+  const summary = `針對「${escapeHtml(subjectLabel)}」題目，使用「${escapeHtml(state.method || 'auto')}」策略來分析。`;
+
+  if (state.subject === 'math') {
+    return `
+      <div class="answer"><b>答案：</b> 先整理題目，將條件轉成可計算的數學式，再依據步驟求解。</div>
+      <div class="formula"><b>關鍵式：</b> ${escapeHtml(text)}</div>
+      <div class="step"><b>步驟 1：</b> 判斷題目型態與已知條件。</div>
+      <div class="step"><b>步驟 2：</b> 代入公式並整理式子。</div>
+      <div class="step"><b>步驟 3：</b> 將結果檢查是否合理並寫出最終答案。</div>
+      <div class="hint">${summary}</div>
+    `;
+  }
+
+  if (state.subject === 'english') {
+    return `
+      <div class="answer"><b>答案：</b> 先抓出主旨、關鍵字與情境，再依照題意選擇最合理的選項或語法。</div>
+      <div class="step"><b>步驟 1：</b> 找出題目的重點與關鍵描述。</div>
+      <div class="step"><b>步驟 2：</b> 比較選項中哪一個最符合語意與語法。</div>
+      <div class="step"><b>步驟 3：</b> 確認答案與題意一致。</div>
+      <div class="hint">${summary}</div>
+    `;
+  }
+
+  if (state.subject === 'programming' || state.subject === 'micro' || state.subject === 'digital') {
+    return `
+      <div class="answer"><b>答案：</b> 先拆解輸入、流程與條件，再檢查每一步的輸出與邏輯。</div>
+      <div class="formula"><code>${escapeHtml(text)}</code></div>
+      <div class="step"><b>步驟 1：</b> 釐清程式目標與輸入資料。</div>
+      <div class="step"><b>步驟 2：</b> 逐行檢查條件與迴圈邏輯。</div>
+      <div class="step"><b>步驟 3：</b> 驗證最終結果是否符合題意。</div>
+      <div class="hint">${summary}</div>
+    `;
+  }
+
+  return `
+    <div class="answer"><b>答案：</b> 先整理題目條件，確認目標與已知資料，再作出適當推理與計算。</div>
+    <div class="step"><b>重點判讀：</b> ${escapeHtml(text)}</div>
+    <div class="hint">${summary}</div>
+  `;
+}
+
+function solve() {
+  state.question = normalizeQuestion(questionInput?.value || '');
+  state.answer = buildAnswer();
+  resultBox.innerHTML = state.answer;
+  if (previewText) {
+    previewText.textContent = `已讀取 ${state.question.length} 字元的題目內容。`;
+  }
+}
+
+function saveQuestion() {
+  const cleanText = normalizeQuestion(questionInput?.value || '');
+  if (!cleanText) {
+    alert('請先輸入題目，再收藏。');
+    return;
+  }
+
+  const entries = saveQuestionToBank(cleanText, state.subject, state.method, state.answer || buildAnswer());
+  renderBank(entries);
+}
+
+function renderBank(entries) {
+  if (!bankBox) return;
+  if (!entries.length) {
+    bankBox.innerHTML = '<p class="small">目前還沒有收藏的題目。</p>';
+    return;
+  }
+
+  bankBox.innerHTML = entries
+    .map(
+      (entry) => `
+        <div class="question">
+          <span class="badge">${escapeHtml(entry.subject || '未分類')}</span>
+          <div class="small" style="margin-top: 8px;">${escapeHtml(entry.method || 'auto')}</div>
+          <p>${escapeHtml(entry.question)}</p>
+        </div>
+      `
+    )
+    .join('');
+}
+
+function handlePhotoUpload(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  state.image = file;
+  const reader = new FileReader();
+  reader.onload = () => {
+    photoPreview.src = reader.result;
+    photoPreview.style.display = 'block';
+    photoStatus.textContent = `已選擇圖片：${file.name}`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleQuestionInput() {
+  state.question = normalizeQuestion(questionInput?.value || '');
+  if (previewText) {
+    previewText.textContent = state.question ? `已輸入題目（${state.question.length} 字）` : '尚未輸入題目';
+  }
+}
+
+subjectButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    chooseSubject(button.dataset.subject);
+  });
+});
+
+methodButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    chooseMethod(button.dataset.method);
+  });
+});
+
+const solveButton = document.getElementById('solve-button');
+if (solveButton) {
+  solveButton.addEventListener('click', solve);
+}
+
+const saveButton = document.getElementById('save-button');
+if (saveButton) {
+  saveButton.addEventListener('click', saveQuestion);
+}
+
+if (questionInput) {
+  questionInput.addEventListener('input', handleQuestionInput);
+}
+
+if (photoInput) {
+  photoInput.addEventListener('change', handlePhotoUpload);
+}
+
+renderBank(loadQuestionBank());

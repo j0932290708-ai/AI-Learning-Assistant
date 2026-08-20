@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 全科智慧學習助手</title>
+    <script type="module" src="/src/main.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #f1f5f9;
+        color: #1e293b;
+        font-family: "Microsoft JhengHei", Arial, sans-serif;
+      }
+      header {
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        color: white;
+        padding: 28px 20px;
+        text-align: center;
+      }
+      header h1 { margin: 0 0 8px; }
+      header p { margin: 0; opacity: 0.9; }
+      .container {
+        max-width: 1200px;
+        margin: 25px auto;
+        padding: 0 15px;
+      }
+      .card {
+        background: white;
+        border-radius: 18px;
+        padding: 22px;
+        margin-bottom: 20px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.07);
+      }
+      h2 { margin-top: 0; }
+      .subjects {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+      }
+      .subject {
+        padding: 18px 10px;
+        border: 2px solid #e2e8f0;
+        border-radius: 14px;
+        background: white;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      .subject:hover { border-color: #6366f1; }
+      .subject.active {
+        border-color: #4f46e5;
+        background: #eef2ff;
+        color: #4338ca;
+        font-weight: bold;
+      }
+      .icon { display: block; font-size: 30px; margin-bottom: 8px; }
+      textarea {
+        width: 100%;
+        min-height: 180px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 17px;
+        resize: vertical;
+      }
+      textarea:focus {
+        outline: none;
+        border-color: #6366f1;
+      }
+      button {
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .btn {
+        border: 0;
+        border-radius: 10px;
+        padding: 11px 18px;
+        margin: 5px 3px;
+        font-size: 15px;
+      }
+      .primary { background: #4f46e5; color: white; }
+      .primary:hover { background: #4338ca; }
+      .gray { background: #e2e8f0; color: #334155; }
+      .orange { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+      .green { background: #dcfce7; color: #166534; }
+      .red { background: #fee2e2; color: #991b1b; }
+      .method-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+      }
+      .method {
+        padding: 15px;
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        text-align: left;
+      }
+      .method.active {
+        border-color: #4f46e5;
+        background: #eef2ff;
+      }
+      .result {
+        line-height: 1.9;
+      }
+      .answer {
+        background: #ecfdf5;
+        border-left: 5px solid #10b981;
+        padding: 17px;
+        border-radius: 10px;
+        margin: 15px 0;
+      }
+      .formula {
+        background: #eff6ff;
+        border-left: 5px solid #3b82f6;
+        padding: 17px;
+        border-radius: 10px;
+        margin: 15px 0;
+      }
+      .step {
+        background: #f8fafc;
+        border-left: 4px solid #6366f1;
+        padding: 15px;
+        margin: 12px 0;
+        border-radius: 8px;
+      }
+      .step b { color: #4338ca; }
+      .hint {
+        background: #fffbeb;
+        border-left: 5px solid #f59e0b;
+        padding: 17px;
+        border-radius: 10px;
+        margin: 12px 0;
+      }
+      .question { padding: 15px; border-bottom: 1px solid #e2e8f0; }
+      .question:last-child { border-bottom: 0; }
+      .badge {
+        display: inline-block;
+        padding: 4px 9px;
+        border-radius: 20px;
+        background: #eef2ff;
+        color: #4338ca;
+        font-size: 13px;
+      }
+      .small { color: #64748b; font-size: 14px; }
+      #preview {
+        max-width: 100%;
+        max-height: 400px;
+        display: none;
+        margin-top: 15px;
+        border-radius: 12px;
+      }
+      .hidden { display: none; }
+      @media (max-width: 600px) {
+        .container { padding: 0 10px; }
+        .card { padding: 16px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>🧠 AI 全科智慧學習助手</h1>
+      <p>不只給答案，更教你「為什麼這樣做」</p>
+    </header>
+
+    <div class="container">
+      <div class="card">
+        <h2>📚 選擇科目</h2>
+        <div class="subjects">
+          <button class="subject active" data-subject="math" type="button"><span class="icon">🧮</span>數學</button>
+          <button class="subject" data-subject="chinese" type="button"><span class="icon">📖</span>國文</button>
+          <button class="subject" data-subject="english" type="button"><span class="icon">🇺🇸</span>英文</button>
+          <button class="subject" data-subject="electric" type="button"><span class="icon">⚡</span>基本電學</button>
+          <button class="subject" data-subject="electronics" type="button"><span class="icon">🔌</span>電子學</button>
+          <button class="subject" data-subject="digital" type="button"><span class="icon">💻</span>數位邏輯</button>
+          <button class="subject" data-subject="programming" type="button"><span class="icon">👨‍💻</span>程式設計</button>
+          <button class="subject" data-subject="micro" type="button"><span class="icon">🤖</span>微處理機</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📝 題目</h2>
+        <textarea id="question" placeholder="把題目貼在這裡……"></textarea>
+        <div id="previewText" class="small"></div>
+        <br />
+        <button class="btn primary" id="solve-button" type="button">🚀 開始解題</button>
+        <button class="btn orange" id="hint-button" type="button">🆘 我完全不知道怎麼做</button>
+        <button class="btn gray" id="save-button" type="button">⭐ 收藏</button>
+        <button class="btn green" id="practice-button" type="button">🔄 類似題</button>
+      </div>
+
+      <div class="card">
+        <h2>📷 拍照／上傳題目</h2>
+        <input id="photo" type="file" accept="image/*" capture="environment" />
+        <img id="preview" alt="題目預覽" />
+        <p class="small">可以拍考卷、課本、英文閱讀、電路圖、程式碼。</p>
+        <button class="btn primary" id="read-photo-button" type="button">🔎 嘗試辨識</button>
+        <div id="photoStatus"></div>
+      </div>
+
+      <div class="card" id="circuitBox">
+        <h2>⚡ 電路解法</h2>
+        <p>電路題可以自己選擇解法。</p>
+        <div class="method-grid">
+          <button class="method" data-method="node" type="button">🔵 節點電壓法</button>
+          <button class="method" data-method="mesh" type="button">🟢 迴路電流法</button>
+          <button class="method" data-method="kcl" type="button">🔴 KCL</button>
+          <button class="method" data-method="kvl" type="button">🟡 KVL</button>
+          <button class="method" data-method="thevenin" type="button">🟠 戴維寧</button>
+          <button class="method" data-method="norton" type="button">🟣 諾頓</button>
+          <button class="method" data-method="series" type="button">⚪ 串並聯</button>
+          <button class="method" data-method="auto" type="button">🤖 幫我選</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📖 解題結果</h2>
+        <div id="result" class="result">
+          <p class="small">目前還沒有解題結果。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>⭐ 我的題庫</h2>
+        <div id="bank"></div>
+      </div>
+
+      <div class="card" id="dictionaryBox">
+        <h2>📚 我的英文單字</h2>
+        <input id="wordInput" placeholder="輸入英文單字，例如 communicate" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 16px;" />
+        <button class="btn primary" id="dictionary-button" type="button">🔎 查單字</button>
+        <div id="wordResult"></div>
+        <div id="wordBank"></div>
+      </div>
+
+      <div class="card">
+        <h2>🎯 類似題練習</h2>
+        <div id="practice">
+          <p class="small">按「類似題」產生練習。</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
