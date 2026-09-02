@@ -2,21 +2,21 @@
   "name": "AI 全科智慧學習助手",
   "short_name": "AI 學習助手",
   "description": "用清楚步驟協助理解八個科目的 AI 學習工具",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f1f5f9",
   "theme_color": "#4f46e5",
   "lang": "zh-Hant",
   "icons": [
     {
-      "src": "/icons/app-icon-192.png",
+      "src": "./icons/app-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/app-icon-512.png",
+      "src": "./icons/app-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

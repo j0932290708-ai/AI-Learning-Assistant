@@ -1,12 +1,12 @@
 const CACHE_NAME = 'ai-learning-assistant-v1';
 const APP_SHELL = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/src/main.js',
-  '/src/api.js',
-  '/icons/app-icon-192.png',
-  '/icons/app-icon-512.png'
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './src/main.js',
+  './src/api.js',
+  './icons/app-icon-192.png',
+  './icons/app-icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -39,6 +39,6 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/')))
+      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./')))
   );
 });
