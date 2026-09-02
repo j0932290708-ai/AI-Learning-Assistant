@@ -30,6 +30,8 @@ const photoStatus = document.getElementById('photoStatus');
 
 const solveButton = document.getElementById('solve-button');
 const saveButton = document.getElementById('save-button');
+const aiDrawButton = document.getElementById('ai-draw-button');
+const visualResult = document.getElementById('visual-result');
 const methodGrid = document.getElementById('method-grid');
 const installButton = document.getElementById('install-button');
 const installStatus = document.getElementById('install-status');
@@ -498,6 +500,10 @@ if (saveButton) {
   saveButton.addEventListener('click', saveQuestion);
 }
 
+if (aiDrawButton) {
+  aiDrawButton.addEventListener('click', generateVisual);
+}
+
 if (questionInput) {
   questionInput.addEventListener(
     'input',
@@ -522,6 +528,162 @@ if ('serviceWorker' in navigator) {
       console.error('Service worker registration failed:', error);
     });
   });
+}
+
+function readValue(question, pattern, fallback) {
+  const match = question.match(pattern);
+  return match ? match[1] : fallback;
+}
+
+function createCircuitVisual(question) {
+  const voltage = readValue(question, /([0-9]+(?:\.[0-9]+)?)\s*(?:V|伏特)/i, '?');
+  const current = readValue(question, /([0-9]+(?:\.[0-9]+)?)\s*(?:A|安培)/i, '?');
+  const resistance = readValue(question, /([0-9]+(?:\.[0-9]+)?)\s*(?:Ω|ohm|歐姆)/i, '?');
+  const component = state.subject === 'electronics' ? '電子元件' : 'R1';
+
+  return `
+    <svg viewBox="0 0 640 330" role="img" aria-label="電路的電流與電壓方向圖">
+      <defs>
+        <marker id="arrow-current" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L9,3 z" fill="#ef4444"></path>
+        </marker>
+      </defs>
+      <rect x="12" y="12" width="616" height="306" rx="18" fill="#f8fafc" stroke="#cbd5e1"></rect>
+      <path d="M100 85 H265 M405 85 H535 V245 H100 V85" fill="none" stroke="#334155" stroke-width="5"></path>
+      <path d="M265 85 l16 -18 18 36 18 -36 18 36 18 -36 16 18" fill="none" stroke="#7c3aed" stroke-width="5"></path>
+      <line x1="75" y1="145" x2="125" y2="145" stroke="#2563eb" stroke-width="6"></line>
+      <line x1="84" y1="178" x2="116" y2="178" stroke="#2563eb" stroke-width="4"></line>
+      <line x1="100" y1="85" x2="100" y2="145" stroke="#334155" stroke-width="5"></line>
+      <line x1="100" y1="178" x2="100" y2="245" stroke="#334155" stroke-width="5"></line>
+      <line x1="145" y1="55" x2="235" y2="55" stroke="#ef4444" stroke-width="4" marker-end="url(#arrow-current)"></line>
+      <line x1="500" y1="275" x2="410" y2="275" stroke="#ef4444" stroke-width="4" marker-end="url(#arrow-current)"></line>
+      <text x="150" y="43" fill="#b91c1c" font-size="20" font-weight="700">I = ${escapeHtml(current)} A</text>
+      <text x="58" y="168" fill="#1d4ed8" font-size="18" font-weight="700">V = ${escapeHtml(voltage)} V</text>
+      <text x="292" y="132" fill="#5b21b6" font-size="19" font-weight="700">${component} = ${escapeHtml(resistance)} Ω</text>
+      <text x="258" y="58" fill="#dc2626" font-size="24">+</text>
+      <text x="397" y="58" fill="#2563eb" font-size="28">−</text>
+      <text x="175" y="305" fill="#475569" font-size="17">紅色箭頭：傳統電流方向　＋／−：元件電壓方向</text>
+    </svg>
+  `;
+}
+
+function coefficient(value, fallback = 1) {
+  if (value === '' || value === '+') return 1;
+  if (value === '-') return -1;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function createMathVisual(question) {
+  const expression = question.replace(/\s+/g, '').replace(/²/g, '^2');
+  const quadratic = expression.match(/y=([+-]?(?:\d+(?:\.\d+)?)?)x\^2(?:([+-]\d+(?:\.\d+)?)x)?([+-]\d+(?:\.\d+)?)?/i);
+  const linear = expression.match(/y=([+-]?(?:\d+(?:\.\d+)?)?)x([+-]\d+(?:\.\d+)?)?/i);
+  const isQuadratic = Boolean(quadratic);
+  const a = coefficient((quadratic || linear)?.[1] ?? '', 1);
+  const b = isQuadratic ? coefficient(quadratic?.[2]?.replace(/x$/i, '') || '0', 0) : 0;
+  const c = Number((isQuadratic ? quadratic?.[3] : linear?.[2]) || 0);
+  const formula = isQuadratic
+    ? `y = ${a}x² ${b >= 0 ? '+' : '−'} ${Math.abs(b)}x ${c >= 0 ? '+' : '−'} ${Math.abs(c)}`
+    : `y = ${a}x ${c >= 0 ? '+' : '−'} ${Math.abs(c)}`;
+  const points = [];
+
+  for (let x = -5; x <= 5; x += 0.2) {
+    const y = isQuadratic ? (a * x * x) + (b * x) + c : (a * x) + c;
+    const screenX = 320 + (x * 48);
+    const screenY = 170 - (Math.max(-5, Math.min(5, y)) * 27);
+    points.push(`${screenX.toFixed(1)},${screenY.toFixed(1)}`);
+  }
+
+  const grid = Array.from({ length: 11 }, (_, index) => {
+    const x = 80 + (index * 48);
+    const y = 35 + (index * 27);
+    return `<line x1="${x}" y1="35" x2="${x}" y2="305"></line><line x1="80" y1="${y}" x2="560" y2="${y}"></line>`;
+  }).join('');
+
+  return `
+    <svg viewBox="0 0 640 350" role="img" aria-label="函數圖形 ${escapeHtml(formula)}">
+      <rect x="12" y="12" width="616" height="326" rx="18" fill="#f8fafc" stroke="#cbd5e1"></rect>
+      <g stroke="#e2e8f0" stroke-width="1">${grid}</g>
+      <line x1="80" y1="170" x2="575" y2="170" stroke="#334155" stroke-width="3"></line>
+      <line x1="320" y1="315" x2="320" y2="25" stroke="#334155" stroke-width="3"></line>
+      <text x="578" y="163" font-size="18">x</text><text x="330" y="30" font-size="18">y</text>
+      <polyline points="${points.join(' ')}" fill="none" stroke="#7c3aed" stroke-width="5" stroke-linejoin="round"></polyline>
+      <text x="92" y="55" fill="#5b21b6" font-size="20" font-weight="700">${escapeHtml(formula)}</text>
+    </svg>
+  `;
+}
+
+function createChineseVisual(question) {
+  const dictionary = {
+    之: '代詞或助詞，要依上下文判斷。',
+    其: '可表示他的、那個，或推測語氣。',
+    而: '連接前後語意，可表承接、轉折或並列。',
+    以: '常表示用、因為、來，需配合句意。',
+    於: '常表示在、向、對於或比。',
+    者: '可指人事物，也可用來停頓或判斷。',
+    也: '句末語氣詞，常用於判斷或說明。'
+  };
+  let notes = Object.entries(dictionary)
+    .filter(([word]) => question.includes(word))
+    .slice(0, 5);
+
+  if (!notes.length) {
+    const words = question.replace(/[，。！？、；：\s]/g, '').slice(0, 6).match(/.{1,2}/g) || ['重點'];
+    notes = words.slice(0, 3).map((word) => [word, '可在這裡補上字義、語氣、修辭或段落作用。']);
+  }
+
+  return `
+    <div class="annotation-board">
+      <div class="annotation-passage">
+        <strong>原文／題目</strong><br>${escapeHtml(question)}
+      </div>
+      <div>
+        ${notes.map(([word, note]) => `
+          <div class="annotation-note"><strong>${escapeHtml(word)}</strong>：${escapeHtml(note)}</div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function createConceptVisual() {
+  const subject = subjectLabels[state.subject] || '目前科目';
+  const method = methodLabels[state.method] || 'AI 自動選擇';
+  return `
+    <svg viewBox="0 0 640 260" role="img" aria-label="${escapeHtml(subject)}觀念流程圖">
+      <defs><marker id="arrow-flow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"></path></marker></defs>
+      <rect x="12" y="12" width="616" height="236" rx="18" fill="#f8fafc" stroke="#cbd5e1"></rect>
+      <g font-size="17" text-anchor="middle">
+        <rect x="45" y="92" width="125" height="70" rx="12" fill="#dbeafe"></rect><text x="108" y="120"><tspan x="108">讀取題目</tspan><tspan x="108" dy="24">${escapeHtml(subject)}</tspan></text>
+        <rect x="255" y="92" width="130" height="70" rx="12" fill="#ede9fe"></rect><text x="320" y="120"><tspan x="320">選擇方法</tspan><tspan x="320" dy="24">${escapeHtml(method)}</tspan></text>
+        <rect x="470" y="92" width="125" height="70" rx="12" fill="#dcfce7"></rect><text x="533" y="120"><tspan x="533">整理步驟</tspan><tspan x="533" dy="24">檢查答案</tspan></text>
+      </g>
+      <line x1="178" y1="127" x2="245" y2="127" stroke="#7c3aed" stroke-width="4" marker-end="url(#arrow-flow)"></line>
+      <line x1="393" y1="127" x2="460" y2="127" stroke="#7c3aed" stroke-width="4" marker-end="url(#arrow-flow)"></line>
+    </svg>
+  `;
+}
+
+function generateVisual() {
+  const question = normalizeQuestion(questionInput?.value || '');
+
+  if (!question) {
+    visualResult.innerHTML = '<p class="hint"><strong>請先輸入題目，再按 AI 繪圖。</strong></p>';
+    return;
+  }
+
+  let visual;
+  if (state.subject === 'basic_electricity' || state.subject === 'electronics') {
+    visual = createCircuitVisual(question);
+  } else if (state.subject === 'math') {
+    visual = createMathVisual(question);
+  } else if (state.subject === 'chinese') {
+    visual = createChineseVisual(question);
+  } else {
+    visual = createConceptVisual();
+  }
+
+  visualResult.innerHTML = `<span class="badge">${escapeHtml(subjectLabels[state.subject])}・AI 視覺化</span>${visual}`;
 }
 
 // 預設選擇數學

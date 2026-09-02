@@ -65,6 +65,19 @@ describe('Frontend structure requirements', () => {
     assert.equal(manifest.icons.length >= 2, true);
   });
 
+  test('AI drawing button provides subject-specific visual generators', () => {
+    const html = readFileSync(filePaths.index, 'utf8');
+    const mainJs = readFileSync(filePaths.main, 'utf8');
+
+    assert.match(html, /id="ai-draw-button"/i);
+    assert.match(html, /id="visual-result"/i);
+    assert.match(mainJs, /function\s+generateVisual\s*\(/);
+    assert.match(mainJs, /function\s+createCircuitVisual\s*\(/);
+    assert.match(mainJs, /function\s+createMathVisual\s*\(/);
+    assert.match(mainJs, /function\s+createChineseVisual\s*\(/);
+    assert.match(mainJs, /aiDrawButton\.addEventListener\('click',\s*generateVisual\)/);
+  });
+
   test('frontend uses canonical subject and method IDs', () => {
     const html = readFileSync(filePaths.index, 'utf8');
     const mainJs = readFileSync(filePaths.main, 'utf8');

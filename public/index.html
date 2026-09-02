@@ -173,10 +173,45 @@
         margin-top: 15px;
         border-radius: 12px;
       }
+      .draw-button { background: #7c3aed; color: white; }
+      .visual-result {
+        overflow-x: auto;
+        min-height: 90px;
+      }
+      .visual-result svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        min-width: 520px;
+        margin-top: 12px;
+      }
+      .annotation-board {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr);
+        gap: 16px;
+        margin-top: 14px;
+      }
+      .annotation-passage,
+      .annotation-note {
+        padding: 16px;
+        border-radius: 12px;
+      }
+      .annotation-passage {
+        background: #fff7ed;
+        border: 1px solid #fdba74;
+        font-size: 18px;
+        line-height: 1.9;
+      }
+      .annotation-note {
+        background: #f5f3ff;
+        border-left: 4px solid #7c3aed;
+        margin-bottom: 10px;
+      }
       .hidden { display: none; }
       @media (max-width: 600px) {
         .container { padding: 0 10px; }
         .card { padding: 16px; }
+        .annotation-board { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -212,6 +247,7 @@
         <br />
         <button class="btn primary" id="solve-button" type="button">🚀 開始解題</button>
         <button class="btn gray" id="save-button" type="button">⭐ 收藏</button>
+        <button class="btn draw-button" id="ai-draw-button" type="button">🎨 AI 繪圖</button>
       </div>
 
       <div class="card">
@@ -234,6 +270,13 @@
         <h2>📖 解題結果</h2>
         <div id="result" class="result">
           <p class="small">目前還沒有解題結果。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🎨 AI 視覺圖解</h2>
+        <div id="visual-result" class="visual-result" aria-live="polite">
+          <p class="small">輸入題目後按「AI 繪圖」，會依科目產生電路圖、函數圖或注釋圖。</p>
         </div>
       </div>
 
