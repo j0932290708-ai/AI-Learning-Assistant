@@ -4,11 +4,15 @@ export function errorHandler(err, req, res, next) {
     : 500;
 
   const code = err.code || 'INTERNAL_ERROR';
+  const safeServerMessages = {
+    AI_SERVICE_UNAVAILABLE: 'AI service is not configured'
+  };
   const message = statusCode >= 500
-    ? 'Internal server error'
+    ? (safeServerMessages[code] || 'Internal server error')
     : (err.message || 'Request failed');
 
-  console.error({
+  const logger = req.app.locals.logger || console;
+  logger.error?.({
     requestId: req.requestId,
     code,
     message: err.message
@@ -18,7 +22,8 @@ export function errorHandler(err, req, res, next) {
     error: {
       code,
       message,
-      requestId: req.requestId
+      requestId: req.requestId,
+      ...(err.fields ? { fields: err.fields } : {})
     }
   });
 }

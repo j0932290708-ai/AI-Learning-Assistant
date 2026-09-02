@@ -6,8 +6,8 @@ import {
 } from './api.js';
 
 const state = {
-  subject: 'math',
-  method: 'auto',
+  subject: null,
+  method: null,
   question: '',
   image: null,
   answer: null
@@ -17,9 +17,7 @@ const subjectButtons = Array.from(
   document.querySelectorAll('.subject')
 );
 
-const methodButtons = Array.from(
-  document.querySelectorAll('.method')
-);
+let methodButtons = [];
 
 const questionInput = document.getElementById('question');
 const resultBox = document.getElementById('result');
@@ -32,28 +30,94 @@ const photoStatus = document.getElementById('photoStatus');
 
 const solveButton = document.getElementById('solve-button');
 const saveButton = document.getElementById('save-button');
+const methodGrid = document.getElementById('method-grid');
 
 const subjectLabels = {
   math: '數學',
   chinese: '國文',
   english: '英文',
-  electric: '基本電學',
+  basic_electricity: '基本電學',
   electronics: '電子學',
-  digital: '數位邏輯',
+  digital_logic: '數位邏輯',
   programming: '程式設計',
-  micro: '微處理機'
+  microprocessor: '微處理機'
 };
 
 const methodLabels = {
-  node: '節點電壓法',
-  mesh: '迴路電流法',
+  auto: 'AI 自動選擇',
+  algebra: '代數',
+  calculus: '微積分',
+  combinatorics: '排列組合',
+  arithmetic: '算術',
+  node_voltage: '節點電壓法',
+  mesh_current: '迴路電流法',
   kcl: 'KCL',
   kvl: 'KVL',
-  thevenin: '戴維寧',
-  norton: '諾頓',
-  series: '串並聯',
-  auto: 'AI 自動選擇'
+  series_parallel: '串並聯',
+  diode: '二極體',
+  bjt: 'BJT',
+  fet: 'FET',
+  op_amp: '運算放大器',
+  amplifier: '放大電路',
+  boolean: '布林代數',
+  logic_gate: '邏輯閘',
+  truth_table: '真值表',
+  karnaugh_map: '卡諾圖',
+  flip_flop: '觸發器',
+  c: 'C',
+  cpp: 'C++',
+  python: 'Python',
+  javascript: 'JavaScript',
+  debugging: '除錯',
+  algorithm: '演算法',
+  instruction: '指令',
+  register: '暫存器',
+  memory: '記憶體',
+  assembly: '組合語言',
+  io: '輸入輸出',
+  architecture: '架構',
+  reading: '閱讀',
+  classical_chinese: '文言文',
+  vocabulary: '字詞',
+  idiom: '成語',
+  literature: '文學常識',
+  grammar: '文法',
+  translation: '翻譯',
+  cloze: '克漏字',
+  sentence: '句子修正'
 };
+
+const subjectMethods = {
+  math: ['auto', 'algebra', 'calculus', 'combinatorics', 'arithmetic'],
+  basic_electricity: ['auto', 'kcl', 'kvl', 'node_voltage', 'mesh_current', 'series_parallel'],
+  electronics: ['auto', 'diode', 'bjt', 'fet', 'op_amp', 'amplifier'],
+  digital_logic: ['auto', 'boolean', 'logic_gate', 'truth_table', 'karnaugh_map', 'flip_flop'],
+  programming: ['auto', 'c', 'cpp', 'python', 'javascript', 'debugging', 'algorithm'],
+  microprocessor: ['auto', 'instruction', 'register', 'memory', 'assembly', 'io', 'architecture'],
+  chinese: ['auto', 'reading', 'classical_chinese', 'vocabulary', 'idiom', 'literature', 'grammar'],
+  english: ['auto', 'vocabulary', 'grammar', 'reading', 'translation', 'cloze', 'sentence']
+};
+
+function renderMethodButtons(subjectId) {
+  const methods = subjectMethods[subjectId] || ['auto'];
+
+  methodGrid.innerHTML = methods
+    .map((method) => `
+      <button class="method" data-method="${method}" type="button">
+        ${methodLabels[method] || method}
+      </button>
+    `)
+    .join('');
+
+  methodButtons = Array.from(methodGrid.querySelectorAll('.method'));
+  methodButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      chooseMethod(button.dataset.method);
+    });
+  });
+
+  chooseMethod('auto');
+}
 
 function chooseSubject(subjectId) {
   state.subject = subjectId;
@@ -64,6 +128,8 @@ function chooseSubject(subjectId) {
       button.dataset.subject === subjectId
     );
   });
+
+  renderMethodButtons(subjectId);
 }
 
 function chooseMethod(methodName) {
@@ -174,6 +240,31 @@ function formatAIAnswer(text) {
   `;
 }
 
+function formatStructuredAnswer(data) {
+  const steps = Array.isArray(data.steps)
+    ? data.steps
+      .map((step, index) => `
+        <li><strong>Step ${index + 1}</strong> ${escapeHtml(step)}</li>
+      `)
+      .join('')
+    : '';
+
+  return `
+    <div class="ai-answer">
+      ${steps ? `
+        <div class="section-title">解題步驟</div>
+        <ol>${steps}</ol>
+      ` : ''}
+      <div class="final-title">最終答案</div>
+      ${formatAIAnswer(data.answer)}
+      ${data.explanation ? `
+        <div class="section-title">觀念解釋</div>
+        <p>${escapeHtml(data.explanation)}</p>
+      ` : ''}
+    </div>
+  `;
+}
+
 async function solve() {
   const question = normalizeQuestion(
     questionInput?.value || ''
@@ -209,8 +300,8 @@ async function solve() {
       },
       body: JSON.stringify({
         question: state.question,
-        subject: subjectLabels[state.subject] || state.subject,
-        mode: methodLabels[state.method] || state.method
+        subject: state.subject,
+        method: state.method
       })
     });
 
@@ -227,13 +318,13 @@ async function solve() {
     resultBox.innerHTML = `
       <div class="answer">
         <strong>📚 科目：</strong>
-        ${escapeHtml(data.subject || subjectLabels[state.subject])}
+        ${escapeHtml(subjectLabels[data.subject] || data.subject)}
         <br>
         <strong>🧠 解題方法：</strong>
-        ${escapeHtml(data.method || methodLabels[state.method])}
+        ${escapeHtml(methodLabels[data.method] || data.method)}
       </div>
 
-      ${formatAIAnswer(data.answer)}
+      ${formatStructuredAnswer(data)}
     `;
   } catch (error) {
     console.error('Solve error:', error);
@@ -243,7 +334,7 @@ async function solve() {
         <strong>❌ 解題失敗</strong>
         <p>${escapeHtml(error.message)}</p>
         <p class="small">
-          請確認後端伺服器仍然正在執行。
+          請確認後端服務與 API key 設定。
         </p>
       </div>
     `;
@@ -352,12 +443,6 @@ function handleQuestionInput() {
 subjectButtons.forEach((button) => {
   button.addEventListener('click', () => {
     chooseSubject(button.dataset.subject);
-  });
-});
-
-methodButtons.forEach((button) => {
-  button.addEventListener('click', () => {
-    chooseMethod(button.dataset.method);
   });
 });
 

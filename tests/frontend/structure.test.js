@@ -47,4 +47,36 @@ describe('Frontend structure requirements', () => {
     const apiJs = readFileSync(filePaths.api, 'utf8');
     assert.match(apiJs, /export\s+function|export\s+const|export\s+default/i);
   });
+
+  test('frontend uses canonical subject and method IDs', () => {
+    const html = readFileSync(filePaths.index, 'utf8');
+    const mainJs = readFileSync(filePaths.main, 'utf8');
+
+    for (const subject of [
+      'math',
+      'chinese',
+      'english',
+      'basic_electricity',
+      'electronics',
+      'digital_logic',
+      'programming',
+      'microprocessor'
+    ]) {
+      assert.match(html, new RegExp(`data-subject="${subject}"`));
+      assert.match(mainJs, new RegExp(`${subject}:`));
+    }
+
+    assert.match(mainJs, /subject:\s*state\.subject/);
+    assert.match(mainJs, /method:\s*state\.method/);
+    assert.doesNotMatch(mainJs, /mode:\s*methodLabels/);
+  });
+
+  test('frontend does not show controls without implemented behavior', () => {
+    const html = readFileSync(filePaths.index, 'utf8');
+
+    assert.doesNotMatch(
+      html,
+      /hint-button|practice-button|read-photo-button|dictionary-button/
+    );
+  });
 });

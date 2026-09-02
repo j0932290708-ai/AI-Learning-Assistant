@@ -171,11 +171,11 @@
           <button class="subject active" data-subject="math" type="button"><span class="icon">🧮</span>數學</button>
           <button class="subject" data-subject="chinese" type="button"><span class="icon">📖</span>國文</button>
           <button class="subject" data-subject="english" type="button"><span class="icon">🇺🇸</span>英文</button>
-          <button class="subject" data-subject="electric" type="button"><span class="icon">⚡</span>基本電學</button>
+          <button class="subject" data-subject="basic_electricity" type="button"><span class="icon">⚡</span>基本電學</button>
           <button class="subject" data-subject="electronics" type="button"><span class="icon">🔌</span>電子學</button>
-          <button class="subject" data-subject="digital" type="button"><span class="icon">💻</span>數位邏輯</button>
+          <button class="subject" data-subject="digital_logic" type="button"><span class="icon">💻</span>數位邏輯</button>
           <button class="subject" data-subject="programming" type="button"><span class="icon">👨‍💻</span>程式設計</button>
-          <button class="subject" data-subject="micro" type="button"><span class="icon">🤖</span>微處理機</button>
+          <button class="subject" data-subject="microprocessor" type="button"><span class="icon">🤖</span>微處理機</button>
         </div>
       </div>
 
@@ -185,32 +185,22 @@
         <div id="previewText" class="small"></div>
         <br />
         <button class="btn primary" id="solve-button" type="button">🚀 開始解題</button>
-        <button class="btn orange" id="hint-button" type="button">🆘 我完全不知道怎麼做</button>
         <button class="btn gray" id="save-button" type="button">⭐ 收藏</button>
-        <button class="btn green" id="practice-button" type="button">🔄 類似題</button>
       </div>
 
       <div class="card">
         <h2>📷 拍照／上傳題目</h2>
         <input id="photo" type="file" accept="image/*" capture="environment" />
         <img id="preview" alt="題目預覽" />
-        <p class="small">可以拍考卷、課本、英文閱讀、電路圖、程式碼。</p>
-        <button class="btn primary" id="read-photo-button" type="button">🔎 嘗試辨識</button>
+        <p class="small">此版本提供圖片預覽；請將題目文字輸入上方題目欄。</p>
         <div id="photoStatus"></div>
       </div>
 
-      <div class="card" id="circuitBox">
-        <h2>⚡ 電路解法</h2>
-        <p>電路題可以自己選擇解法。</p>
-        <div class="method-grid">
-          <button class="method" data-method="node" type="button">🔵 節點電壓法</button>
-          <button class="method" data-method="mesh" type="button">🟢 迴路電流法</button>
-          <button class="method" data-method="kcl" type="button">🔴 KCL</button>
-          <button class="method" data-method="kvl" type="button">🟡 KVL</button>
-          <button class="method" data-method="thevenin" type="button">🟠 戴維寧</button>
-          <button class="method" data-method="norton" type="button">🟣 諾頓</button>
-          <button class="method" data-method="series" type="button">⚪ 串並聯</button>
-          <button class="method" data-method="auto" type="button">🤖 幫我選</button>
+      <div class="card" id="methodBox">
+        <h2>🧠 選擇解題方法</h2>
+        <p>每個科目會顯示適合的方法；不確定時可選「AI 自動選擇」。</p>
+        <div class="method-grid" id="method-grid">
+          <button class="method active" data-method="auto" type="button">🤖 AI 自動選擇</button>
         </div>
       </div>
 
@@ -226,20 +216,6 @@
         <div id="bank"></div>
       </div>
 
-      <div class="card" id="dictionaryBox">
-        <h2>📚 我的英文單字</h2>
-        <input id="wordInput" placeholder="輸入英文單字，例如 communicate" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 16px;" />
-        <button class="btn primary" id="dictionary-button" type="button">🔎 查單字</button>
-        <div id="wordResult"></div>
-        <div id="wordBank"></div>
-      </div>
-
-      <div class="card">
-        <h2>🎯 類似題練習</h2>
-        <div id="practice">
-          <p class="small">按「類似題」產生練習。</p>
-        </div>
-      </div>
     </div>
   </body>
 </html>
