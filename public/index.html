@@ -3,6 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#4f46e5" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="AI 學習助手" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/app-icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/app-icon-192.png" />
     <title>AI 全科智慧學習助手</title>
     <script type="module" src="/src/main.js"></script>
     <style>
@@ -21,6 +28,21 @@
       }
       header h1 { margin: 0 0 8px; }
       header p { margin: 0; opacity: 0.9; }
+      .install-area { margin-top: 14px; }
+      .install-button {
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        border-radius: 999px;
+        background: white;
+        color: #4338ca;
+        padding: 9px 16px;
+        font-weight: bold;
+      }
+      .install-button:hover { background: #eef2ff; }
+      #install-status {
+        min-height: 20px;
+        margin: 8px 0 0;
+        font-size: 14px;
+      }
       .container {
         max-width: 1200px;
         margin: 25px auto;
@@ -162,6 +184,10 @@
     <header>
       <h1>🧠 AI 全科智慧學習助手</h1>
       <p>不只給答案，更教你「為什麼這樣做」</p>
+      <div class="install-area">
+        <button id="install-button" class="install-button" type="button">📲 安裝 App</button>
+        <p id="install-status" aria-live="polite"></p>
+      </div>
     </header>
 
     <div class="container">

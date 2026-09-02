@@ -31,6 +31,10 @@ const photoStatus = document.getElementById('photoStatus');
 const solveButton = document.getElementById('solve-button');
 const saveButton = document.getElementById('save-button');
 const methodGrid = document.getElementById('method-grid');
+const installButton = document.getElementById('install-button');
+const installStatus = document.getElementById('install-status');
+
+let installPrompt = null;
 
 const subjectLabels = {
   math: '數學',
@@ -440,6 +444,46 @@ function handleQuestionInput() {
   }
 }
 
+function showInstallStatus(message) {
+  if (installStatus) {
+    installStatus.textContent = message;
+  }
+}
+
+async function installApp() {
+  if (matchMedia('(display-mode: standalone)').matches) {
+    showInstallStatus('App 已經安裝完成，可以從裝置圖示開啟。');
+    return;
+  }
+
+  if (installPrompt) {
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    showInstallStatus(
+      choice.outcome === 'accepted'
+        ? '安裝完成後，裝置上會出現 AI 學習助手圖示。'
+        : '已取消安裝，之後仍可再按一次。'
+    );
+    installPrompt = null;
+    return;
+  }
+
+  showInstallStatus(
+    '若沒有跳出安裝視窗，請用瀏覽器選單的「安裝應用程式」或「加入主畫面」。'
+  );
+}
+
+addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  installPrompt = event;
+  showInstallStatus('可以安裝到裝置，安裝後會顯示 App 圖示。');
+});
+
+addEventListener('appinstalled', () => {
+  installPrompt = null;
+  showInstallStatus('App 安裝完成，可以從裝置圖示開啟。');
+});
+
 subjectButtons.forEach((button) => {
   button.addEventListener('click', () => {
     chooseSubject(button.dataset.subject);
@@ -466,6 +510,18 @@ if (photoInput) {
     'change',
     handlePhotoUpload
   );
+}
+
+if (installButton) {
+  installButton.addEventListener('click', installApp);
+}
+
+if ('serviceWorker' in navigator) {
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch((error) => {
+      console.error('Service worker registration failed:', error);
+    });
+  });
 }
 
 // 預設選擇數學

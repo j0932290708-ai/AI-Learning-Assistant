@@ -11,7 +11,11 @@ const projectRoot = path.resolve(__dirname, '../..');
 const filePaths = {
   index: path.join(projectRoot, 'public/index.html'),
   main: path.join(projectRoot, 'public/src/main.js'),
-  api: path.join(projectRoot, 'public/src/api.js')
+  api: path.join(projectRoot, 'public/src/api.js'),
+  manifest: path.join(projectRoot, 'public/manifest.webmanifest'),
+  serviceWorker: path.join(projectRoot, 'public/service-worker.js'),
+  icon192: path.join(projectRoot, 'public/icons/app-icon-192.png'),
+  icon512: path.join(projectRoot, 'public/icons/app-icon-512.png')
 };
 
 describe('Frontend structure requirements', () => {
@@ -46,6 +50,19 @@ describe('Frontend structure requirements', () => {
   test('api.js exists and is a module helper file', () => {
     const apiJs = readFileSync(filePaths.api, 'utf8');
     assert.match(apiJs, /export\s+function|export\s+const|export\s+default/i);
+  });
+
+  test('installable app files and controls are connected', () => {
+    const html = readFileSync(filePaths.index, 'utf8');
+    const mainJs = readFileSync(filePaths.main, 'utf8');
+    const manifest = JSON.parse(readFileSync(filePaths.manifest, 'utf8'));
+
+    assert.match(html, /rel="manifest"\s+href="\/manifest\.webmanifest"/i);
+    assert.match(html, /id="install-button"/i);
+    assert.match(mainJs, /beforeinstallprompt/);
+    assert.match(mainJs, /navigator\.serviceWorker\.register\('\/service-worker\.js'\)/);
+    assert.equal(manifest.display, 'standalone');
+    assert.equal(manifest.icons.length >= 2, true);
   });
 
   test('frontend uses canonical subject and method IDs', () => {
