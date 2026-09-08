@@ -9,5 +9,5 @@ export const solveRequestSchema = z.object({
     .string()
     .trim()
     .min(1, 'question is required')
-    .max(12000, 'question is too long')
+    .max(5000, 'question is too long')
 }).strict();

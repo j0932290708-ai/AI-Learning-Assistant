@@ -1,4 +1,5 @@
 import { buildProgrammingPrompt, programmingMethodIds } from './prompt.js';
+import { parseAiJson } from '../parseAiJson.js';
 
 const programmingMethodSet = new Set(programmingMethodIds);
 const codeRequestPattern = /\b(code|program|implement|write|function|class|pseudocode)\b|程式|實作|程式碼/i;
@@ -42,7 +43,7 @@ function parseResult(text, requestedMethod, question) {
   let result;
 
   try {
-    result = JSON.parse(text);
+    result = parseAiJson(text);
   } catch {
     throw new ProgrammingSolverError(
       'PROGRAMMING_AI_INVALID_JSON',

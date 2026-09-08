@@ -151,6 +151,7 @@ test('POST /api/solve rejects a method from another subject', async () => {
 
 test('POST /api/solve reports a missing AI service safely', async () => {
   const appWithoutAi = createApp({
+    services: { aiService: null },
     logger: { log() {}, error() {} }
   });
   const localServer = appWithoutAi.listen(0);

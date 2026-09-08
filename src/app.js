@@ -9,6 +9,7 @@ import { createRateLimiter } from './middleware/rateLimiter.js';
 import { requestId } from './middleware/requestId.js';
 import { validateRequest } from './middleware/validateRequest.js';
 import { solveRequestSchema } from './schemas/requestSchemas.js';
+import { Semaphore } from './services/concurrencyLimiter.js';
 import { solveSubject } from './subjects/registry.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -36,14 +37,32 @@ function createDefaultAiService() {
   };
 }
 
-export function createApp({ services = {}, logger = console } = {}) {
+function withTimeout(promise, timeoutMs) {
+  let timer;
+  const timeout = new Promise((resolve, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error('AI service took too long to respond');
+      error.code = 'AI_TIMEOUT';
+      error.statusCode = 504;
+      reject(error);
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+export function createApp({ services = {}, logger = console, config = {} } = {}) {
   const app = express();
-  const aiService = services.aiService || createDefaultAiService();
+  const aiService = Object.hasOwn(services, 'aiService')
+    ? services.aiService
+    : createDefaultAiService();
+  const concurrencyLimiter = services.concurrencyLimiter || new Semaphore(2, 20);
+  const aiTimeoutMs = config.aiTimeoutMs || 30_000;
+  const solveRateLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 30 });
   app.locals.logger = logger;
 
   app.use(requestId);
   app.use(express.json({ limit: '1mb' }));
-  app.use(createRateLimiter({ windowMs: 60 * 1000, max: 30 }));
 
   const publicDir = path.join(__dirname, '../public');
   app.use(express.static(publicDir));
@@ -56,10 +75,17 @@ export function createApp({ services = {}, logger = console } = {}) {
     res.status(200).json({ ok: true });
   });
 
+  app.get('/ready', (req, res) => {
+    const ready = Boolean(aiService);
+    res.status(ready ? 200 : 503).json({ ready });
+  });
+
   app.post(
     '/api/solve',
+    solveRateLimiter,
     validateRequest(solveRequestSchema),
     async (req, res, next) => {
+      let permit;
       try {
         if (!aiService) {
           const error = new Error('AI service is not configured');
@@ -73,15 +99,22 @@ export function createApp({ services = {}, logger = console } = {}) {
           `[AI] solve subject=${input.subject} method=${input.method} requestId=${req.requestId}`
         );
 
-        const result = await solveSubject(input, aiService);
+        permit = await concurrencyLimiter.acquire();
+        const result = await withTimeout(
+          solveSubject(input, aiService),
+          aiTimeoutMs
+        );
 
         res.status(200).json({
           success: true,
           question: input.question,
-          ...result
+          ...result,
+          requestId: req.requestId
         });
       } catch (error) {
         next(error);
+      } finally {
+        permit?.release();
       }
     }
   );
@@ -89,9 +122,10 @@ export function createApp({ services = {}, logger = console } = {}) {
   app.use((req, res) => {
     res.status(404).json({
       error: {
+        code: 'NOT_FOUND',
         message: 'Not Found',
-        status: 404
-      }
+      },
+      requestId: req.requestId
     });
   });
 

@@ -76,6 +76,39 @@ describe('Frontend structure requirements', () => {
     assert.match(mainJs, /function\s+createMathVisual\s*\(/);
     assert.match(mainJs, /function\s+createChineseVisual\s*\(/);
     assert.match(mainJs, /aiDrawButton\.addEventListener\('click',\s*generateVisual\)/);
+    assert.match(html, /題目圖解（規則式）/);
+    assert.match(mainJs, /無法可靠繪圖/);
+    assert.doesNotMatch(html, />\s*🎨 AI 繪圖\s*</);
+  });
+
+  test('demo mode and stale-result protection are explicit', () => {
+    const html = readFileSync(filePaths.index, 'utf8');
+    const mainJs = readFileSync(filePaths.main, 'utf8');
+
+    assert.match(html, /data-app-mode="api"/);
+    assert.match(html, /id="mode-banner"/);
+    assert.match(mainJs, /這是固定的互動 Demo，不是模型生成的答案/);
+    assert.match(mainJs, /Object\.freeze\(\{/);
+    assert.match(mainJs, /state\.activeRequest\?\.requestId !== request\.requestId/);
+    assert.doesNotMatch(mainJs, /location\.hostname/);
+  });
+
+  test('inputs have visible limits and selected buttons expose accessibility state', () => {
+    const html = readFileSync(filePaths.index, 'utf8');
+    const mainJs = readFileSync(filePaths.main, 'utf8');
+
+    assert.match(html, /id="question"[^>]*maxlength="5000"/s);
+    assert.match(mainJs, /maxImageBytes\s*=\s*5 \* 1024 \* 1024/);
+    assert.match(mainJs, /setAttribute\('aria-pressed', String\(selected\)\)/);
+  });
+
+  test('service worker does not cache API or cross-origin responses', () => {
+    const serviceWorker = readFileSync(filePaths.serviceWorker, 'utf8');
+
+    assert.match(serviceWorker, /requestUrl\.origin !== self\.location\.origin/);
+    assert.match(serviceWorker, /requestUrl\.pathname\.includes\('\/api\/'\)/);
+    assert.match(serviceWorker, /event\.request\.mode === 'navigate'/);
+    assert.doesNotMatch(serviceWorker, /cached \|\| caches\.match\('\/'\)/);
   });
 
   test('frontend uses canonical subject and method IDs', () => {

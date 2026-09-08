@@ -1,4 +1,5 @@
 import { buildElectricalPrompt, electricalMethodIds } from './prompt.js';
+import { parseAiJson } from '../parseAiJson.js';
 
 const electricalMethodSet = new Set(electricalMethodIds);
 
@@ -41,7 +42,7 @@ function parseResult(text, requestedMethod) {
   let result;
 
   try {
-    result = JSON.parse(text);
+    result = parseAiJson(text);
   } catch {
     throw new ElectricalSolverError(
       'ELECTRICAL_AI_INVALID_JSON',

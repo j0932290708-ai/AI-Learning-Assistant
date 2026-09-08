@@ -1,4 +1,5 @@
 import { buildChinesePrompt, chineseMethodIds } from './prompt.js';
+import { parseAiJson } from '../parseAiJson.js';
 
 const chineseMethodSet = new Set(chineseMethodIds);
 const optionalFields = [
@@ -58,7 +59,7 @@ function parseResult(text, requestedMethod) {
   let result;
 
   try {
-    result = JSON.parse(text);
+    result = parseAiJson(text);
   } catch {
     throw new ChineseSolverError(
       'CHINESE_AI_INVALID_JSON',

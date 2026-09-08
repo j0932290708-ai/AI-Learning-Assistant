@@ -1,4 +1,5 @@
 import { buildDigitalLogicPrompt, digitalLogicMethodIds } from './prompt.js';
+import { parseAiJson } from '../parseAiJson.js';
 
 const digitalLogicMethodSet = new Set(digitalLogicMethodIds);
 
@@ -41,7 +42,7 @@ function parseResult(text, requestedMethod) {
   let result;
 
   try {
-    result = JSON.parse(text);
+    result = parseAiJson(text);
   } catch {
     throw new DigitalLogicSolverError(
       'DIGITAL_LOGIC_AI_INVALID_JSON',

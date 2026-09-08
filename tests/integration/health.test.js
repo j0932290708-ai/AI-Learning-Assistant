@@ -39,7 +39,8 @@ describe('Health and System Endpoints', () => {
 
       assert.equal(response.status, 404);
       assert.equal(body.error.message, 'Not Found');
-      assert.equal(body.error.status, 404);
+      assert.equal(body.error.code, 'NOT_FOUND');
+      assert.equal(typeof body.requestId, 'string');
     } finally {
       await new Promise((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));

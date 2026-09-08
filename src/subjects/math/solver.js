@@ -1,4 +1,5 @@
 import { buildMathPrompt, mathMethodIds } from './prompt.js';
+import { parseAiJson } from '../parseAiJson.js';
 
 const mathMethodSet = new Set(mathMethodIds);
 
@@ -41,7 +42,7 @@ function parseResult(text, requestedMethod) {
   let result;
 
   try {
-    result = JSON.parse(text);
+    result = parseAiJson(text);
   } catch {
     throw new MathSolverError(
       'MATH_AI_INVALID_JSON',

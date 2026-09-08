@@ -29,9 +29,9 @@ export function createRateLimiter(options = {}) {
       return res.status(429).json({
         error: {
           code: 'RATE_LIMIT_EXCEEDED',
-          message: 'Too many requests',
-          requestId: req.requestId
-        }
+          message: 'Too many requests'
+        },
+        requestId: req.requestId
       });
     }
 

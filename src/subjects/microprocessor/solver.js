@@ -1,4 +1,5 @@
 import { buildMicroprocessorPrompt, microprocessorMethodIds } from './prompt.js';
+import { parseAiJson } from '../parseAiJson.js';
 
 const microprocessorMethodSet = new Set(microprocessorMethodIds);
 const optionalFields = ['registers', 'memory', 'instructions'];
@@ -42,7 +43,7 @@ function parseResult(text, requestedMethod) {
   let result;
 
   try {
-    result = JSON.parse(text);
+    result = parseAiJson(text);
   } catch {
     throw new MicroprocessorSolverError(
       'MICROPROCESSOR_AI_INVALID_JSON',

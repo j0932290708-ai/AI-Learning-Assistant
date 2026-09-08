@@ -1,4 +1,5 @@
 import { buildEnglishPrompt, englishMethodIds } from './prompt.js';
+import { parseAiJson } from '../parseAiJson.js';
 
 const englishMethodSet = new Set(englishMethodIds);
 const optionalFields = [
@@ -57,7 +58,7 @@ function parseResult(text, requestedMethod) {
   let result;
 
   try {
-    result = JSON.parse(text);
+    result = parseAiJson(text);
   } catch {
     throw new EnglishSolverError(
       'ENGLISH_AI_INVALID_JSON',
