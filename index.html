@@ -28,6 +28,15 @@
       }
       header h1 { margin: 0 0 8px; }
       header p { margin: 0; opacity: 0.9; }
+      .mode-banner {
+        max-width: 900px;
+        margin: 14px auto 0;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: #fef3c7;
+        color: #78350f;
+        font-weight: 700;
+      }
       .install-area { margin-top: 14px; }
       .install-button {
         border: 1px solid rgba(255, 255, 255, 0.7);
@@ -182,8 +191,16 @@
         display: block;
         width: 100%;
         height: auto;
-        min-width: 520px;
+        max-width: 720px;
         margin-top: 12px;
+      }
+      .visual-summary {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: #f8fafc;
+        color: #334155;
+        line-height: 1.6;
       }
       .annotation-board {
         display: grid;
@@ -215,10 +232,11 @@
       }
     </style>
   </head>
-  <body>
+  <body data-app-mode="demo">
     <header>
       <h1>🧠 AI 全科智慧學習助手</h1>
       <p>不只給答案，更教你「為什麼這樣做」</p>
+      <div id="mode-banner" class="mode-banner hidden" role="status"></div>
       <div class="install-area">
         <button id="install-button" class="install-button" type="button">📲 安裝 App</button>
         <p id="install-status" aria-live="polite"></p>
@@ -242,19 +260,19 @@
 
       <div class="card">
         <h2>📝 題目</h2>
-        <textarea id="question" placeholder="把題目貼在這裡……"></textarea>
+        <textarea id="question" maxlength="5000" placeholder="把題目貼在這裡……"></textarea>
         <div id="previewText" class="small"></div>
         <br />
         <button class="btn primary" id="solve-button" type="button">🚀 開始解題</button>
         <button class="btn gray" id="save-button" type="button">⭐ 收藏</button>
-        <button class="btn draw-button" id="ai-draw-button" type="button">🎨 AI 繪圖</button>
+        <button class="btn draw-button" id="ai-draw-button" type="button">🎨 題目圖解（規則式）</button>
       </div>
 
       <div class="card">
         <h2>📷 拍照／上傳題目</h2>
         <input id="photo" type="file" accept="image/*" capture="environment" />
         <img id="preview" alt="題目預覽" />
-        <p class="small">此版本提供圖片預覽；請將題目文字輸入上方題目欄。</p>
+        <p class="small">此功能只在裝置上預覽圖片，不會辨識題目或上傳圖片。支援 PNG、JPEG、WebP，最大 5 MB。</p>
         <div id="photoStatus"></div>
       </div>
 
@@ -274,9 +292,9 @@
       </div>
 
       <div class="card">
-        <h2>🎨 AI 視覺圖解</h2>
+        <h2>🎨 題目視覺圖解</h2>
         <div id="visual-result" class="visual-result" aria-live="polite">
-          <p class="small">輸入題目後按「AI 繪圖」，會依科目產生電路圖、函數圖或注釋圖。</p>
+          <p class="small">輸入支援格式的題目後按「題目圖解」，會以規則產生電路圖、函數圖或注釋圖；無法確認時不會猜圖。</p>
         </div>
       </div>
 

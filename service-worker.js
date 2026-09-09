@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-learning-assistant-v2';
+const CACHE_NAME = 'ai-learning-assistant-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -28,17 +28,40 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') {
+  const requestUrl = new URL(event.request.url);
+
+  if (
+    event.request.method !== 'GET'
+    || requestUrl.origin !== self.location.origin
+    || requestUrl.pathname.includes('/api/')
+  ) {
+    return;
+  }
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then(
+          (cached) => cached || caches.match(new URL('./', self.registration.scope))
+        ))
+    );
     return;
   }
 
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
+    caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
+      if (response.ok && response.type === 'basic') {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return response;
-      })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./')))
+      }
+      return response;
+    }))
   );
 });
