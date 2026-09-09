@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "check:syntax": "node --check server.js && node --check public/src/main.js && node --check public/src/api.js && node --check public/service-worker.js && node --check src/app.js && node --check src/server.js && node --check src/subjects/registry.js && node --check src/subjects/parseAiJson.js && node --check src/schemas/requestSchemas.js && node --check src/middleware/validateRequest.js",
-    "test": "node --test tests/integration/health.test.js tests/integration/solve-subjects.test.js tests/integration/resilience.test.js tests/frontend/structure.test.js tests/frontend/api.test.js tests/unit/parse-ai-json.test.js src/subjects/math/subject.test.js src/subjects/basicElectrical/subject.test.js src/subjects/electronics/subject.test.js src/subjects/digitalLogic/subject.test.js src/subjects/programming/subject.test.js src/subjects/microprocessor/subject.test.js src/subjects/chinese/subject.test.js src/subjects/english/subject.test.js"
+    "test": "node --test tests/integration/health.test.js tests/integration/solve-subjects.test.js tests/integration/resilience.test.js tests/frontend/structure.test.js tests/frontend/api.test.js tests/frontend/behavior.test.js tests/unit/parse-ai-json.test.js src/subjects/math/subject.test.js src/subjects/basicElectrical/subject.test.js src/subjects/electronics/subject.test.js src/subjects/digitalLogic/subject.test.js src/subjects/programming/subject.test.js src/subjects/microprocessor/subject.test.js src/subjects/chinese/subject.test.js src/subjects/english/subject.test.js"
   },
   "keywords": [],
   "author": "",

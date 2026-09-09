@@ -147,9 +147,11 @@ function sameRequestSelection(request) {
 }
 
 function invalidateAnswerForInputChange() {
+  visualResult.innerHTML = '<p class="hint">題目或選擇變更後，請重新產生圖解。</p>';
   if (state.solvedRequest && !sameRequestSelection(state.solvedRequest)) {
     state.answer = null;
     state.solvedRequest = null;
+    resultBox.innerHTML = '<p class="hint">題目或選擇已變更，請重新解題。</p>';
   }
 
   if (state.activeRequest && !sameRequestSelection(state.activeRequest)) {
@@ -322,6 +324,8 @@ function formatStructuredAnswer(data) {
       ` : ''}
       <div class="final-title">最終答案</div>
       ${formatAIAnswer(data.answer)}
+      ${typeof data.code === 'string' ? `<pre style="overflow:auto;white-space:pre;"><code>${escapeHtml(data.code)}</code></pre>` : ''}
+      ${data.complexity ? `<p>複雜度：${escapeHtml(typeof data.complexity === 'object' ? JSON.stringify(data.complexity) : data.complexity)}</p>` : ''}
       ${data.explanation ? `
         <div class="section-title">觀念解釋</div>
         <p>${escapeHtml(data.explanation)}</p>
@@ -410,6 +414,7 @@ async function solve() {
     state.answer = data.answer || '';
     state.solvedRequest = Object.freeze({
       ...request,
+      actualMethod: data.method || request.method,
       answer: state.answer
     });
 
@@ -419,12 +424,13 @@ async function solve() {
         ${escapeHtml(subjectLabels[request.subject] || request.subject)}
         <br>
         <strong>🧠 解題方法：</strong>
-        ${escapeHtml(methodLabels[request.method] || request.method)}
+        ${escapeHtml(methodLabels[data.method || request.method] || data.method || request.method)}
       </div>
 
       ${formatStructuredAnswer(data)}
     `;
   } catch (error) {
+    if (state.activeRequest?.requestId !== request.requestId) return;
     console.error('Solve error:', error);
 
     resultBox.innerHTML = `
@@ -463,7 +469,7 @@ function saveQuestion() {
     const entries = saveQuestionToBank(
       matchedResult?.question || cleanText,
       subjectLabels[matchedResult?.subject || state.subject] || state.subject,
-      methodLabels[matchedResult?.method || state.method] || state.method,
+      methodLabels[matchedResult?.actualMethod || state.method] || matchedResult?.actualMethod || state.method,
       matchedResult?.answer || ''
     );
     renderBank(entries);
@@ -509,6 +515,7 @@ function renderBank(entries) {
           <p>
             ${escapeHtml(entry.question || '')}
           </p>
+          ${entry.answer ? `<details><summary>查看已收藏答案</summary><p style="white-space:pre-wrap;">${escapeHtml(entry.answer)}</p></details>` : ''}
         </div>
       `
     )
@@ -683,6 +690,13 @@ function readValue(question, pattern, fallback) {
 }
 
 function createCircuitVisual(question) {
+  const voltageValues = Array.from(question.matchAll(/([+-]?\d+(?:\.\d+)?)\s*(?:V\b|伏特)/gi));
+  const resistorValues = Array.from(question.matchAll(/([+-]?\d+(?:\.\d+)?)\s*(?:Ω|ohm|歐姆)/gi));
+  if (voltageValues.length !== 1 || Number(voltageValues[0][1]) <= 0
+    || resistorValues.some(match => Number(match[1]) <= 0)
+    || /(並聯|parallel|二極體|電晶體|電容|電感|diode|transistor|capacitor|inductor|BJT|FET|op.?amp)/i.test(question)) {
+    return { error: '目前只支援一個正電壓電源與正電阻的單一串聯電路；其他元件或不明接法暫不繪製。' };
+  }
   const voltage = readValue(question, /([0-9]+(?:\.[0-9]+)?)\s*(?:V|伏特)/i, null);
   const current = readValue(question, /([0-9]+(?:\.[0-9]+)?)\s*(?:A|安培)/i, null);
   const resistors = Array.from(question.matchAll(
@@ -730,7 +744,7 @@ function createCircuitVisual(question) {
         </marker>
       </defs>
       <rect x="12" y="12" width="616" height="306" rx="18" fill="#f8fafc" stroke="#cbd5e1"></rect>
-      <path d="M100 85 H535 V245 H100 V85" fill="none" stroke="#334155" stroke-width="5"></path>
+      <path d="M100 145 V85 H535 V245 H100 V178" fill="none" stroke="#334155" stroke-width="5"></path>
       ${resistorShapes}
       <line x1="75" y1="145" x2="125" y2="145" stroke="#2563eb" stroke-width="6"></line>
       <line x1="84" y1="178" x2="116" y2="178" stroke="#2563eb" stroke-width="4"></line>
@@ -758,8 +772,8 @@ function coefficient(value, fallback = 1) {
 
 function createMathVisual(question) {
   const expression = question.replace(/\s+/g, '').replace(/²/g, '^2');
-  const quadratic = expression.match(/y=([+-]?(?:\d+(?:\.\d+)?)?)x\^2(?:([+-]\d+(?:\.\d+)?)x)?([+-]\d+(?:\.\d+)?)?/i);
-  const linear = expression.match(/y=([+-]?(?:\d+(?:\.\d+)?)?)x([+-]\d+(?:\.\d+)?)?/i);
+  const quadratic = expression.match(/^y=([+-]?(?:\d+(?:\.\d+)?)?)x\^2(?:([+-](?:\d+(?:\.\d+)?)?)x)?([+-]\d+(?:\.\d+)?)?$/i);
+  const linear = expression.match(/^y=([+-]?(?:\d+(?:\.\d+)?)?)x([+-]\d+(?:\.\d+)?)?$/i);
 
   if (!quadratic && !linear) {
     return {
@@ -779,7 +793,7 @@ function createMathVisual(question) {
   for (let x = -5; x <= 5; x += 0.2) {
     const y = isQuadratic ? (a * x * x) + (b * x) + c : (a * x) + c;
     const screenX = 320 + (x * 48);
-    const screenY = 170 - (Math.max(-5, Math.min(5, y)) * 27);
+    const screenY = 170 - (y * 27);
     points.push(`${screenX.toFixed(1)},${screenY.toFixed(1)}`);
   }
 
@@ -792,12 +806,13 @@ function createMathVisual(question) {
   return {
     html: `
     <svg viewBox="0 0 640 350" role="img" aria-label="函數圖形 ${escapeHtml(formula)}">
+      <defs><clipPath id="plot-boundary"><rect x="80" y="35" width="480" height="270"></rect></clipPath></defs>
       <rect x="12" y="12" width="616" height="326" rx="18" fill="#f8fafc" stroke="#cbd5e1"></rect>
       <g stroke="#e2e8f0" stroke-width="1">${grid}</g>
       <line x1="80" y1="170" x2="575" y2="170" stroke="#334155" stroke-width="3"></line>
       <line x1="320" y1="315" x2="320" y2="25" stroke="#334155" stroke-width="3"></line>
       <text x="578" y="163" font-size="18">x</text><text x="330" y="30" font-size="18">y</text>
-      <polyline points="${points.join(' ')}" fill="none" stroke="#7c3aed" stroke-width="5" stroke-linejoin="round"></polyline>
+      <polyline clip-path="url(#plot-boundary)" points="${points.join(' ')}" fill="none" stroke="#7c3aed" stroke-width="5" stroke-linejoin="round"></polyline>
       <text x="92" y="55" fill="#5b21b6" font-size="20" font-weight="700">${escapeHtml(formula)}</text>
     </svg>
     `,
