@@ -16,7 +16,7 @@ function worker() {
   }, caches: {
     open: async () => cache,
     keys: async () => ['focus-clock-v1', 'ai-learning-assistant-v3',
-      `ai-learning-assistant:${scope}:v3`, `ai-learning-assistant:${scope}:v4`,
+      `ai-learning-assistant:${scope}:v3`, `ai-learning-assistant:${scope}:v5`,
       'ai-learning-assistant:https://example.com/other/:v3'],
     delete: async (name) => { deleted.push(name); }
   }, fetch: async () => { throw new Error('offline'); } });

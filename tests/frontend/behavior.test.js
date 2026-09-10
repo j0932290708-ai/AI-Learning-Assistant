@@ -114,6 +114,13 @@ test('saved answer is visible when reopening the question bank', () => {
   assert.match(ui.element('bank').innerHTML, /2 &lt; 3/);
 });
 
+test('saving an empty question shows inline feedback without a blocking dialog', () => {
+  const ui = loadUi();
+  ui.run('saveQuestion()');
+  assert.match(ui.element('result').innerHTML, /請先輸入題目再收藏/);
+  assert.equal(ui.saved.length, 0);
+});
+
 test('photo selection clears old preview and ignores a stale file read', () => {
   const ui = loadUi();
   const readers = [];
