@@ -37,7 +37,7 @@ function createDefaultAiService() {
   };
 }
 
-function withTimeout(promise, timeoutMs) {
+function withTimeout(promise, timeoutMs, controller) {
   let timer;
   const timeout = new Promise((resolve, reject) => {
     timer = setTimeout(() => {
@@ -45,6 +45,7 @@ function withTimeout(promise, timeoutMs) {
       error.code = 'AI_TIMEOUT';
       error.statusCode = 504;
       reject(error);
+      controller.abort();
     }, timeoutMs);
   });
 
@@ -56,7 +57,8 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
   const aiService = Object.hasOwn(services, 'aiService')
     ? services.aiService
     : createDefaultAiService();
-  const concurrencyLimiter = services.concurrencyLimiter || new Semaphore(2, 20);
+  // Reject excess requests promptly instead of leaving students in an unbounded wait.
+  const concurrencyLimiter = services.concurrencyLimiter || new Semaphore(2, 0);
   const aiTimeoutMs = config.aiTimeoutMs || 30_000;
   const solveRateLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 30 });
   app.locals.logger = logger;
@@ -86,6 +88,11 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
     validateRequest(solveRequestSchema),
     async (req, res, next) => {
       let permit;
+      const controller = new AbortController();
+      const onClose = () => {
+        if (!res.writableFinished) controller.abort();
+      };
+      res.on('close', onClose);
       try {
         if (!aiService) {
           const error = new Error('AI service is not configured');
@@ -100,9 +107,24 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
         );
 
         permit = await concurrencyLimiter.acquire();
+        const activePermit = permit;
+        const requestAiService = {
+          models: {
+            generateContent(request) {
+              return aiService.models.generateContent({
+                ...request,
+                config: { ...request.config, abortSignal: controller.signal }
+              });
+            }
+          }
+        };
+        // Keep the slot until the actual model request settles, even after HTTP timeout.
+        const work = solveSubject(input, requestAiService).finally(() => activePermit.release());
+        permit = null;
         const result = await withTimeout(
-          solveSubject(input, aiService),
-          aiTimeoutMs
+          work,
+          aiTimeoutMs,
+          controller
         );
 
         res.status(200).json({
@@ -114,6 +136,7 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
       } catch (error) {
         next(error);
       } finally {
+        res.off('close', onClose);
         permit?.release();
       }
     }

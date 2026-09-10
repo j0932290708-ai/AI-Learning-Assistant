@@ -14,7 +14,7 @@ function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
     if (!elements.has(id)) elements.set(id, {
       value: '', innerHTML: '', textContent: '', disabled: false, style: {},
       classList: { remove() {}, toggle() {} },
-      addEventListener() {}, setAttribute() {}, removeAttribute() {},
+      addEventListener() {}, setAttribute() {}, removeAttribute(name) { delete this[name]; },
       querySelectorAll() { return []; }
     });
     return elements.get(id);
@@ -112,4 +112,36 @@ test('saved answer is visible when reopening the question bank', () => {
   const ui = loadUi();
   ui.run("renderBank([{ question: '1+1', subject: '數學', method: '算術', answer: '2 < 3' }])");
   assert.match(ui.element('bank').innerHTML, /2 &lt; 3/);
+});
+
+test('photo selection clears old preview and ignores a stale file read', () => {
+  const ui = loadUi();
+  const readers = [];
+  ui.context.FileReader = class {
+    constructor() { readers.push(this); }
+    readAsDataURL() {}
+  };
+  ui.run("handlePhotoUpload({target:{files:[{name:'old.png',type:'image/png',size:10}]}})");
+  ui.element('preview').src = 'old-preview';
+  ui.run("handlePhotoUpload({target:{files:[{name:'bad.svg',type:'image/svg+xml',size:10}]}})");
+  readers[0].result = 'data:image/png;base64,old';
+  readers[0].onload();
+  assert.equal(ui.element('preview').src, undefined);
+  assert.equal(ui.element('preview').style.display, 'none');
+  assert.match(ui.element('photoStatus').textContent, /只支援/);
+});
+
+test('corrupt photo reports a decoding error and clears preview', () => {
+  const ui = loadUi();
+  let reader;
+  ui.context.FileReader = class {
+    constructor() { reader = this; }
+    readAsDataURL() {}
+  };
+  ui.run("handlePhotoUpload({target:{files:[{name:'bad.png',type:'image/png',size:10}]}})");
+  reader.result = 'data:image/png;base64,bad';
+  reader.onload();
+  ui.element('preview').onerror();
+  assert.equal(ui.element('preview').style.display, 'none');
+  assert.match(ui.element('photoStatus').textContent, /格式損壞/);
 });

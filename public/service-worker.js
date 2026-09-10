@@ -1,4 +1,5 @@
-const CACHE_NAME = 'ai-learning-assistant-v3';
+const CACHE_PREFIX = `ai-learning-assistant:${self.registration.scope}:`;
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
 const APP_SHELL = [
   './',
   './index.html',
@@ -8,10 +9,11 @@ const APP_SHELL = [
   './icons/app-icon-192.png',
   './icons/app-icon-512.png'
 ];
+const shellUrls = new Set(APP_SHELL.map((path) => new URL(path, self.registration.scope).href));
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll([...shellUrls]))
   );
   self.skipWaiting();
 });
@@ -20,11 +22,11 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => Promise.all(
       keys
-        .filter((key) => key !== CACHE_NAME)
+        .filter((key) => key !== CACHE_NAME && (key.startsWith(CACHE_PREFIX)
+          || /^ai-learning-assistant-v[123]$/.test(key)))
         .map((key) => caches.delete(key))
-    ))
+    )).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -34,6 +36,7 @@ self.addEventListener('fetch', (event) => {
     event.request.method !== 'GET'
     || requestUrl.origin !== self.location.origin
     || requestUrl.pathname.includes('/api/')
+    || !shellUrls.has(requestUrl.href)
   ) {
     return;
   }
@@ -41,25 +44,26 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        .then(async (response) => {
+          if (response.ok && response.type === 'basic') {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(event.request, response.clone());
           }
           return response;
         })
-        .catch(() => caches.match(event.request).then(
-          (cached) => cached || caches.match(new URL('./', self.registration.scope))
-        ))
+        .catch(async () => {
+          const cache = await caches.open(CACHE_NAME);
+          return (await cache.match(event.request))
+            || cache.match(new URL('./', self.registration.scope).href);
+        })
     );
     return;
   }
 
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
+    caches.open(CACHE_NAME).then(async (cache) => (await cache.match(event.request)) || fetch(event.request).then(async (response) => {
       if (response.ok && response.type === 'basic') {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        await cache.put(event.request, response.clone());
       }
       return response;
     }))

@@ -372,7 +372,7 @@ async function solve() {
 
   resultBox.innerHTML = `
     <div class="answer">
-      <strong>🤖 AI 正在解題...</strong>
+      <strong>${isPublicDemo ? '🧪 正在載入示範...' : '🤖 AI 正在解題...'}</strong>
       <p>請稍候。</p>
     </div>
   `;
@@ -529,6 +529,10 @@ function handlePhotoUpload(event) {
     return;
   }
 
+  state.image = null;
+  photoPreview.removeAttribute('src');
+  photoPreview.style.display = 'none';
+
   const supportedTypes = new Set([
     'image/png',
     'image/jpeg',
@@ -552,8 +556,10 @@ function handlePhotoUpload(event) {
   const reader = new FileReader();
 
   reader.onload = () => {
+    if (state.image !== file) return;
     if (photoPreview) {
       photoPreview.onload = () => {
+        if (state.image !== file) return;
         const pixels = photoPreview.naturalWidth * photoPreview.naturalHeight;
         if (pixels > 20_000_000) {
           photoPreview.removeAttribute('src');
@@ -561,6 +567,13 @@ function handlePhotoUpload(event) {
           photoStatus.textContent = '圖片解析度過大，請使用較小的圖片。';
           state.image = null;
         }
+      };
+      photoPreview.onerror = () => {
+        if (state.image !== file) return;
+        state.image = null;
+        photoPreview.removeAttribute('src');
+        photoPreview.style.display = 'none';
+        photoStatus.textContent = '圖片格式損壞，請換一張圖片。';
       };
       photoPreview.src = reader.result;
       photoPreview.style.display = 'block';
@@ -573,6 +586,7 @@ function handlePhotoUpload(event) {
   };
 
   reader.onerror = () => {
+    if (state.image !== file) return;
     state.image = null;
     photoStatus.textContent = '圖片無法讀取，請換一張圖片。';
   };

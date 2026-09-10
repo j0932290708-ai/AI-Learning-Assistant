@@ -139,3 +139,24 @@ test('a full AI queue rejects extra work and releases the active permit', async 
     assert.equal(concurrencyLimiter.getStats().active, 0);
   });
 });
+
+test('timeout aborts the client request but retains capacity until the model settles', async () => {
+  let finish;
+  let signal;
+  const aiService = { models: { generateContent(request) {
+    signal = request.config.abortSignal;
+    return new Promise((resolve) => { finish = () => resolve({ text: fakeAnswer() }); });
+  } } };
+  const concurrencyLimiter = new Semaphore(1, 0);
+  const app = createApp({ services: { aiService, concurrencyLimiter },
+    logger: quietLogger, config: { aiTimeoutMs: 20 } });
+  await withServer(app, async (baseUrl) => {
+    assert.equal((await solveRequest(baseUrl)).status, 504);
+    assert.equal(signal.aborted, true);
+    assert.equal(concurrencyLimiter.getStats().active, 1);
+    assert.equal((await solveRequest(baseUrl)).status, 503);
+    finish();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(concurrencyLimiter.getStats().active, 0);
+  });
+});
