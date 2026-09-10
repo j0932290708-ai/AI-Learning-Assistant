@@ -457,7 +457,7 @@ function saveQuestion() {
   );
 
   if (!cleanText) {
-    alert('請先輸入題目。');
+    resultBox.innerHTML = '<div class="answer"><strong>請先輸入題目再收藏。</strong></div>';
     return;
   }
 
