@@ -1,5 +1,5 @@
 const CACHE_PREFIX = `ai-learning-assistant:${self.registration.scope}:`;
-const CACHE_NAME = `${CACHE_PREFIX}v5`;
+const CACHE_NAME = `${CACHE_PREFIX}v6`;
 const APP_SHELL = [
   './',
   './index.html',
@@ -13,7 +13,9 @@ const shellUrls = new Set(APP_SHELL.map((path) => new URL(path, self.registratio
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll([...shellUrls]))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(
+      [...shellUrls].map((url) => new Request(url, { cache: 'reload' }))
+    ))
   );
   self.skipWaiting();
 });
@@ -61,11 +63,19 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.open(CACHE_NAME).then(async (cache) => (await cache.match(event.request)) || fetch(event.request).then(async (response) => {
-      if (response.ok && response.type === 'basic') {
-        await cache.put(event.request, response.clone());
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // Online students should receive fixes even when an older script is cached.
+      try {
+        const response = await fetch(event.request, { cache: 'no-cache' });
+        if (response.ok && response.type === 'basic') {
+          await cache.put(event.request, response.clone());
+        }
+        return response;
+      } catch (error) {
+        const cached = await cache.match(event.request);
+        if (cached) return cached;
+        throw error;
       }
-      return response;
-    }))
+    })
   );
 });
