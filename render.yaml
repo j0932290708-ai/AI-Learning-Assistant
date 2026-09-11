@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: ai-learning-assistant
+    runtime: node
+    plan: free
+    region: singapore
+    branch: feature/integration
+    buildCommand: npm ci && npm test && npm run check:syntax
+    startCommand: npm start
+    healthCheckPath: /ready
+    autoDeployTrigger: "off"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      - key: HOST
+        value: 0.0.0.0
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
+      - key: GEMINI_API_KEY
+        sync: false

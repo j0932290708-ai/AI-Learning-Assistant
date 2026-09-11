@@ -24,7 +24,15 @@
 
 可以用 `GEMINI_MODEL` 更換模型；沒有設定時使用專案的預設模型。程式碼中沒有硬編 API key。
 
+## 部署真 AI 版本
+
+[一鍵部署到 Render](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fj0932290708-ai%2FAI-Learning-Assistant%2Ftree%2Ffeature%2Fintegration) · [完整部署步驟](DEPLOY.md)
+
+設定檔使用免費 Node Web Service，從 `feature/integration` 部署。網頁與 AI API 共用同一服務，Gemini 金鑰在 Render 後端設定。GitHub Pages 維持示範版，正式 AI 版需使用部署後的網址。
+
 ## 安裝成 App
+
+若要建立可分享的真 AI 版本，先依下方「部署真 AI 版本」完成後端部署，再從部署後的網址安裝。
 
 用支援 PWA 的瀏覽器開啟網站後，按頁首的「安裝 App」。安裝完成後，電腦桌面或手機主畫面會出現「AI 學習助手」圖示。若瀏覽器沒有直接跳出視窗，可從瀏覽器選單選擇「安裝應用程式」或「加入主畫面」。
 
