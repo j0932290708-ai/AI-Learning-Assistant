@@ -32,6 +32,26 @@ function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
   return { context, element, saved, run: (code) => vm.runInContext(code, context) };
 }
 
+test('AI truth table displays every input and output row without executing HTML', () => {
+  const ui = loadUi();
+  ui.context.answer = { answer: 'AND', table: { inputs: ['A', 'B'], rows: [
+    { A: 0, B: 0, Y: 0 }, { A: 0, B: 1, Y: 0 },
+    { A: 1, B: 0, Y: 0 }, { A: 1, B: 1, Y: '<script>alert(1)</script>' }
+  ] } };
+  const html = ui.run('formatStructuredAnswer(answer)');
+  assert.equal((html.match(/<tr>/g) || []).length, 5);
+  for (const header of ['A', 'B', 'Y']) assert.ok(html.includes(`>${header}</th>`));
+  assert.match(html, /&lt;script&gt;/);
+  assert.doesNotMatch(html, /<script>/);
+});
+
+test('AI table supports column and row arrays, and omits an empty table', () => {
+  const ui = loadUi();
+  ui.context.table = { columns: ['A', 'Y'], rows: [[0, 0], [1, 1]] };
+  assert.equal((ui.run('formatAnswerTable(table)').match(/<td /g) || []).length, 4);
+  assert.equal(ui.run('formatAnswerTable([])'), '');
+});
+
 test('quadratic graph preserves implicit x coefficient', () => {
   const ui = loadUi();
   assert.match(ui.run("createMathVisual('y=x²+x+1').summary"), /1x² \+ 1x \+ 1/);

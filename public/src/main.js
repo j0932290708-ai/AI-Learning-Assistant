@@ -307,6 +307,25 @@ function formatAIAnswer(text) {
   `;
 }
 
+function formatAnswerTable(table) {
+  if (!table || (Array.isArray(table) && !table.length)) return '';
+  const rows = Array.isArray(table) ? table : table.rows;
+  if (!Array.isArray(rows) || !rows.length) return '';
+  const objectRows = rows.every((row) => row && typeof row === 'object' && !Array.isArray(row));
+  const columns = objectRows
+    ? [...new Set(rows.flatMap((row) => Object.keys(row)))]
+    : (table.headers || table.columns);
+  if (!Array.isArray(columns) || !columns.length || !rows.every((row) => objectRows || Array.isArray(row))) {
+    return `<pre style="overflow:auto;white-space:pre-wrap;">${escapeHtml(JSON.stringify(table, null, 2))}</pre>`;
+  }
+  const cellText = (value) => value && typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
+  return `<div class="section-title">表格</div><div style="overflow-x:auto;">
+    <table style="border-collapse:collapse;width:100%;">
+      <thead><tr>${columns.map((column) => `<th scope="col" style="border:1px solid #cbd5e1;padding:8px;">${escapeHtml(cellText(column))}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map((row) => `<tr>${columns.map((column, index) => `<td style="border:1px solid #cbd5e1;padding:8px;text-align:center;">${escapeHtml(cellText(row[objectRows ? column : index]))}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
 function formatStructuredAnswer(data) {
   const steps = Array.isArray(data.steps)
     ? data.steps
@@ -324,6 +343,7 @@ function formatStructuredAnswer(data) {
       ` : ''}
       <div class="final-title">最終答案</div>
       ${formatAIAnswer(data.answer)}
+      ${formatAnswerTable(data.table)}
       ${typeof data.code === 'string' ? `<pre style="overflow:auto;white-space:pre;"><code>${escapeHtml(data.code)}</code></pre>` : ''}
       ${data.complexity ? `<p>複雜度：${escapeHtml(typeof data.complexity === 'object' ? JSON.stringify(data.complexity) : data.complexity)}</p>` : ''}
       ${data.explanation ? `

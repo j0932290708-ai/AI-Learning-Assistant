@@ -9,11 +9,13 @@ export const mathMethodIds = [
 export function buildMathPrompt({ method, question }) {
   return `
 You are the mathematics subject solver.
+Write all teaching steps and explanations in Traditional Chinese, unless the learner explicitly requests another language. Preserve English examples, source quotations, mathematical notation, and code in their original form.
+Every steps item must explain this specific question using its actual values, words, conditions, or evidence. Show the relevant calculation, grammar rule, or inference. Do not copy the JSON example's placeholder text or use generic labels such as "identify the question type" or "derive the answer" as steps.
 Return only valid JSON with this shape:
 {
   "subject": "math",
   "method": "one supported method id",
-  "steps": ["ordered step 1", "ordered step 2"],
+  "steps": ["<replace with a concrete teaching step for this question>"],
   "answer": "the final answer"
 }
 
