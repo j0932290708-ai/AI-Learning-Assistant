@@ -10,6 +10,8 @@ const state = {
   method: null,
   question: '',
   image: null,
+  imageData: null,
+  recognitionRequest: null,
   answer: null,
   activeRequest: null,
   solvedRequest: null
@@ -32,6 +34,12 @@ const previewText = document.getElementById('previewText');
 const photoInput = document.getElementById('photo');
 const photoPreview = document.getElementById('preview');
 const photoStatus = document.getElementById('photoStatus');
+const cameraInput = document.getElementById('camera');
+const recognizeButton = document.getElementById('recognize-button');
+const clearPhotoButton = document.getElementById('clear-photo-button');
+const recognitionReview = document.getElementById('recognition-review');
+const recognizedText = document.getElementById('recognized-text');
+const applyRecognitionButton = document.getElementById('apply-recognition-button');
 
 const solveButton = document.getElementById('solve-button');
 const saveButton = document.getElementById('save-button');
@@ -542,6 +550,87 @@ function renderBank(entries) {
     .join('');
 }
 
+function resetPhoto() {
+  state.recognitionRequest?.controller.abort();
+  state.recognitionRequest = null;
+  state.image = null;
+  state.imageData = null;
+  recognizeButton.disabled = true;
+  recognizeButton.textContent = '🔎 辨識圖片';
+  recognitionReview.classList.add('hidden');
+  recognizedText.value = '';
+  photoPreview.removeAttribute('src');
+  photoPreview.style.display = 'none';
+}
+
+function clearPhoto() {
+  resetPhoto();
+  photoInput.value = '';
+  cameraInput.value = '';
+  photoStatus.textContent = '已移除圖片。';
+}
+
+async function recognizePhoto() {
+  if (isPublicDemo) {
+    photoStatus.textContent = '圖片辨識請使用正式 AI 解題版。';
+    return;
+  }
+  if (!state.imageData) {
+    photoStatus.textContent = '請先選擇可讀取的圖片。';
+    return;
+  }
+  state.recognitionRequest?.controller.abort();
+  const request = { controller: new AbortController(), image: state.image };
+  state.recognitionRequest = request;
+  recognizeButton.disabled = true;
+  recognizeButton.textContent = '⏳ 辨識中…';
+  recognitionReview.classList.add('hidden');
+  photoStatus.textContent = '正在辨識圖片，請稍候…';
+  const timer = setTimeout(() => request.controller.abort(), 40000);
+  try {
+    const response = await fetch('/api/recognize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state.imageData),
+      signal: request.controller.signal
+    });
+    const data = await response.json();
+    if (state.recognitionRequest !== request) return;
+    if (!response.ok || !data.success) throw new Error(data?.error?.message || '圖片辨識失敗，請稍後重試。');
+    if (typeof data.text !== 'string' || data.text.length > maxQuestionLength) throw new Error('辨識結果無法使用，請重試。');
+    recognizedText.value = data.text;
+    const warnings = Array.isArray(data.warnings) ? data.warnings.join(' ') : '';
+    photoStatus.textContent = data.text
+      ? `辨識完成，請核對並修改下方文字，再按「使用這段文字作為題目」。${warnings}`
+      : `未辨識到清楚的題目，請重新拍照或手動輸入。${warnings}`;
+    if (data.text) recognitionReview.classList.remove('hidden');
+  } catch (error) {
+    if (state.recognitionRequest !== request) return;
+    photoStatus.textContent = error.name === 'AbortError'
+      ? '辨識等候過久，請稍後重試。'
+      : error.message;
+  } finally {
+    clearTimeout(timer);
+    if (state.recognitionRequest === request) {
+      state.recognitionRequest = null;
+      recognizeButton.disabled = !state.imageData;
+      recognizeButton.textContent = '🔎 辨識圖片';
+    }
+  }
+}
+
+function applyRecognition() {
+  const text = normalizeQuestion(recognizedText.value);
+  if (!text || text.length > maxQuestionLength) {
+    photoStatus.textContent = '請先確認辨識文字，最多 5000 個字。';
+    return;
+  }
+  questionInput.value = text;
+  handleQuestionInput();
+  photoStatus.textContent = '已填入題目。請選擇科目與方法，再按「開始 AI 解題」。';
+  questionInput.focus();
+}
+
 function handlePhotoUpload(event) {
   const file = event.target.files?.[0];
 
@@ -549,9 +638,7 @@ function handlePhotoUpload(event) {
     return;
   }
 
-  state.image = null;
-  photoPreview.removeAttribute('src');
-  photoPreview.style.display = 'none';
+  resetPhoto();
 
   const supportedTypes = new Set([
     'image/png',
@@ -586,11 +673,17 @@ function handlePhotoUpload(event) {
           photoPreview.style.display = 'none';
           photoStatus.textContent = '圖片解析度過大，請使用較小的圖片。';
           state.image = null;
+          return;
         }
+        state.imageData = { mimeType: file.type, data: String(reader.result).split(',')[1] };
+        recognizeButton.disabled = isPublicDemo;
+        photoStatus.textContent = `📷 已選擇圖片：${file.name}。按「辨識圖片」開始。`;
       };
       photoPreview.onerror = () => {
         if (state.image !== file) return;
         state.image = null;
+        state.imageData = null;
+        recognizeButton.disabled = true;
         photoPreview.removeAttribute('src');
         photoPreview.style.display = 'none';
         photoStatus.textContent = '圖片格式損壞，請換一張圖片。';
@@ -653,7 +746,7 @@ async function installApp() {
   }
 
   showInstallStatus(
-    '若沒有跳出安裝視窗，請用瀏覽器選單的「安裝應用程式」或「加入主畫面」。'
+    'Android 請用 Chrome 選單「加到主畫面／安裝」；iPhone 請用 Safari 分享選單「加入主畫面」。下方可展開完整說明。'
   );
 }
 
@@ -705,6 +798,11 @@ if (photoInput) {
     handlePhotoUpload
   );
 }
+
+cameraInput?.addEventListener('change', handlePhotoUpload);
+recognizeButton?.addEventListener('click', recognizePhoto);
+clearPhotoButton?.addEventListener('click', clearPhoto);
+applyRecognitionButton?.addEventListener('click', applyRecognition);
 
 if (installButton) {
   installButton.addEventListener('click', installApp);

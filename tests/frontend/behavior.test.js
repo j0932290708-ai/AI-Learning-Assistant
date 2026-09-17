@@ -13,7 +13,7 @@ function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
       value: '', innerHTML: '', textContent: '', disabled: false, style: {},
-      classList: { remove() {}, toggle() {} },
+      classList: { add() {}, remove() {}, toggle() {} }, focus() {},
       addEventListener() {}, setAttribute() {}, removeAttribute(name) { delete this[name]; },
       querySelectorAll() { return []; }
     });
@@ -171,4 +171,75 @@ test('corrupt photo reports a decoding error and clears preview', () => {
   ui.element('preview').onerror();
   assert.equal(ui.element('preview').style.display, 'none');
   assert.match(ui.element('photoStatus').textContent, /格式損壞/);
+});
+
+test('recognition requires review before replacing a manually typed question', async () => {
+  let sent;
+  const ui = loadUi(async (url, options) => {
+    sent = { url, body: JSON.parse(options.body) };
+    return { ok: true, json: async () => ({ success: true, text: '2x+3=11', warnings: ['核對數字'] }) };
+  });
+  ui.element('question').value = 'original';
+  ui.run("state.imageData = {mimeType:'image/png',data:'aGVsbG8='}");
+  await ui.run('recognizePhoto()');
+  assert.equal(sent.url, '/api/recognize');
+  assert.equal(sent.body.mimeType, 'image/png');
+  assert.equal(ui.element('question').value, 'original');
+  assert.equal(ui.element('recognized-text').value, '2x+3=11');
+  assert.match(ui.element('photoStatus').textContent, /核對數字/);
+  ui.element('recognized-text').value = '2x+3=13';
+  ui.run('applyRecognition()');
+  assert.equal(ui.element('question').value, '2x+3=13');
+});
+
+test('removing a photo cancels recognition and ignores its late result', async () => {
+  let finish, signal;
+  const ui = loadUi((url, options) => {
+    signal = options.signal;
+    return new Promise((resolve) => { finish = resolve; });
+  });
+  ui.run("state.imageData = {mimeType:'image/png',data:'aGVsbG8='}");
+  const pending = ui.run('recognizePhoto()');
+  ui.run('clearPhoto()');
+  assert.equal(signal.aborted, true);
+  finish({ ok: true, json: async () => ({ success: true, text: 'stale', warnings: [] }) });
+  await pending;
+  assert.equal(ui.element('recognized-text').value, '');
+  assert.equal(ui.element('recognize-button').disabled, true);
+  assert.match(ui.element('photoStatus').textContent, /已移除/);
+});
+
+test('recognition errors allow retry and never replace the question', async () => {
+  const ui = loadUi(async () => ({ ok: false, json: async () => ({ error: { message: 'AI 忙碌，稍後重試' } }) }));
+  ui.element('question').value = 'keep';
+  ui.run("state.imageData = {mimeType:'image/png',data:'aGVsbG8='}");
+  await ui.run('recognizePhoto()');
+  assert.equal(ui.element('recognize-button').disabled, false);
+  assert.equal(ui.element('question').value, 'keep');
+  assert.match(ui.element('photoStatus').textContent, /忙碌/);
+});
+
+test('valid decoded image enables recognition, oversized dimensions do not', () => {
+  const ui = loadUi();
+  let reader;
+  ui.context.FileReader = class {
+    constructor() { reader = this; }
+    readAsDataURL() {}
+  };
+  ui.run("handlePhotoUpload({target:{files:[{name:'math.png',type:'image/png',size:100}]}})");
+  reader.result = 'data:image/png;base64,aGVsbG8=';
+  reader.onload();
+  assert.equal(ui.element('recognize-button').disabled, true);
+  ui.element('preview').naturalWidth = 100;
+  ui.element('preview').naturalHeight = 100;
+  ui.element('preview').onload();
+  assert.equal(ui.element('recognize-button').disabled, false);
+  ui.run("handlePhotoUpload({target:{files:[{name:'large.png',type:'image/png',size:100}]}})");
+  reader.result = 'data:image/png;base64,aGVsbG8=';
+  reader.onload();
+  ui.element('preview').naturalWidth = 6000;
+  ui.element('preview').naturalHeight = 4000;
+  ui.element('preview').onload();
+  assert.equal(ui.element('recognize-button').disabled, true);
+  assert.match(ui.element('photoStatus').textContent, /解析度過大/);
 });

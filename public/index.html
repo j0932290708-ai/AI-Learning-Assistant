@@ -225,6 +225,11 @@
         margin-bottom: 10px;
       }
       .hidden { display: none; }
+      button:disabled { cursor: wait; opacity: 0.6; }
+      .result, .question, #photoStatus { overflow-wrap: anywhere; }
+      .install-help { max-width: 620px; margin: 12px auto 0; text-align: left; line-height: 1.7; }
+      .install-help a { color: white; }
+      input[type="file"] { max-width: 100%; }
       @media (max-width: 600px) {
         .container { padding: 0 10px; }
         .card { padding: 16px; }
@@ -240,6 +245,14 @@
       <div class="install-area">
         <button id="install-button" class="install-button" type="button">📲 安裝 App</button>
         <p id="install-status" aria-live="polite"></p>
+        <details class="install-help">
+          <summary>手機安裝與使用方式</summary>
+          <p>Android：用 Chrome 開啟網站，點選選單 ⋮ →「加到主畫面」→「安裝」。</p>
+          <p>iPhone：用 Safari 開啟網站，點選分享 →「加入主畫面」，若有「以網頁 App 開啟」請保持開啟，再按「加入」。</p>
+          <p>不安裝也能直接使用。解題和圖片辨識需要網路；已收藏的題目保存在目前裝置的瀏覽器中。網站閒置後首次開啟可能需約一分鐘。</p>
+          <a href="https://support.apple.com/guide/iphone/iph42ab2f3a7/ios" target="_blank" rel="noopener">Apple 安裝說明</a> ·
+          <a href="https://support.google.com/chrome/answer/9658361?hl=zh-Hant&co=GENIE.Platform%3DAndroid" target="_blank" rel="noopener">Chrome 安裝說明</a>
+        </details>
       </div>
     </header>
 
@@ -260,7 +273,7 @@
 
       <div class="card">
         <h2>📝 題目</h2>
-        <textarea id="question" maxlength="5000" placeholder="把題目貼在這裡……"></textarea>
+        <textarea id="question" aria-label="題目" maxlength="5000" placeholder="把題目貼在這裡，或先在下方辨識圖片……"></textarea>
         <div id="previewText" class="small"></div>
         <br />
         <button class="btn primary" id="solve-button" type="button">🚀 開始解題</button>
@@ -270,10 +283,20 @@
 
       <div class="card">
         <h2>📷 拍照／上傳題目</h2>
-        <input id="photo" type="file" accept="image/*" capture="environment" />
+        <label for="photo">選擇題目圖片</label>
+        <input id="photo" type="file" accept="image/png,image/jpeg,image/webp" />
+        <p><label for="camera">用手機拍照</label>
+        <input id="camera" type="file" accept="image/*" capture="environment" /></p>
         <img id="preview" alt="題目預覽" />
-        <p class="small">此功能只在裝置上預覽圖片，不會辨識題目或上傳圖片。支援 PNG、JPEG、WebP，最大 5 MB。</p>
-        <div id="photoStatus"></div>
+        <p class="small">支援 PNG、JPEG、WebP，最大 5 MB。按「辨識圖片」才會將圖片送至本站後端與 Google Gemini 辨識；本站不保存圖片。請只拍題目，辨識後先核對文字、數字與圖形條件。</p>
+        <button class="btn primary" id="recognize-button" type="button" disabled>🔎 辨識圖片</button>
+        <button class="btn gray" id="clear-photo-button" type="button">移除圖片</button>
+        <div id="photoStatus" role="status" aria-live="polite"></div>
+        <div id="recognition-review" class="hidden">
+          <label for="recognized-text">辨識結果（可以修改，確認後再填入題目）</label>
+          <textarea id="recognized-text" maxlength="5000"></textarea>
+          <button class="btn primary" id="apply-recognition-button" type="button">使用這段文字作為題目</button>
+        </div>
       </div>
 
       <div class="card" id="methodBox">
@@ -286,7 +309,8 @@
 
       <div class="card">
         <h2>📖 解題結果</h2>
-        <div id="result" class="result">
+        <p class="small">AI 可能出錯，請核對計算、引文與重要觀念；遇到不清楚的條件可補充後再問。</p>
+        <div id="result" class="result" aria-live="polite">
           <p class="small">目前還沒有解題結果。</p>
         </div>
       </div>

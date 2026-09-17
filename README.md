@@ -1,79 +1,53 @@
 # AI 全科智慧學習助手
 
-這是一個用於升大學推甄展示的學習助手專案。重點是讓學生不只看到答案，也能看到解題步驟和使用的方法。
+提供八科文字解題、圖片題目辨識、步驟解說、收藏與可安裝的網頁 App，採用 Express 與 Gemini API。
 
-## 支援科目
+- [開啟正式 AI 版](https://ai-learning-assistant-pnma.onrender.com/)
+- [互動展示版](https://j0932290708-ai.github.io/AI-Learning-Assistant/)：使用固定示範答案，首頁提供正式版入口。
+- [部署說明](DEPLOY.md)
 
-- 數學
-- 基本電學
-- 電子學
-- 數位邏輯
-- 程式設計
-- 微處理機
-- 國文
-- 英文
+## 使用方式
 
-每個科目都有自己的 `prompt.js`、`solver.js` 和 fake AI 測試。`src/subjects/registry.js` 負責將 API 請求分派到正確的科目，沒有建立複雜的多層框架。
+1. 選擇數學、國文、英文、基本電學、電子學、數位邏輯、程式設計或微處理機。
+2. 輸入題目，或在圖片區選擇圖片／用手機拍照。
+3. 圖片題目請按「辨識圖片」，核對並修改辨識結果，再按「使用這段文字作為題目」。這一步會取代題目欄的文字。
+4. 選擇解題方法，不確定時使用「AI 自動選擇」，再按「開始 AI 解題」。
+5. 閱讀步驟、答案和表格，按「收藏」保存題目與最終答案。
 
-## 執行方式
+圖片支援 PNG、JPEG、WebP，最大 5 MB、前端預覽最多 2000 萬像素。只在按下辨識後送至後端及 Google Gemini，本站不把圖片寫入檔案或題庫。請拍清楚完整題目，不清楚的文字會提示重新核對。HEIC 等格式請先轉成 JPEG 或 PNG。
 
-1. 安裝相依套件：`npm install`
-2. 設定 `GEMINI_API_KEY`
-3. 執行：`npm start`
-4. 開啟 `http://127.0.0.1:3000`
+## 安裝到手機
 
-可以用 `GEMINI_MODEL` 更換模型；沒有設定時使用專案的預設模型。程式碼中沒有硬編 API key。
+- Android：用 Chrome 開啟正式網址，選單 ⋮ →「加到主畫面」→「安裝」，也可按網站的「安裝 App」。
+- iPhone：用 Safari 開啟正式網址，分享 →「加入主畫面」，若有「以網頁 App 開啟」請保持開啟，再按「加入」。
+- 不安裝也能直接使用。文字解題與圖片辨識需要網路；已快取的頁面和本機題庫可離線開啟。
+- 收藏保存在目前裝置、目前網址的瀏覽器中，不會自動同步到其他手機，也不會從展示版自動搬到正式版。
+- 免費主機閒置後首次開啟可能需約一分鐘；AI 暫時忙碌時可稍後重試。
 
-## 部署真 AI 版本
+官方安裝說明：[Apple](https://support.apple.com/guide/iphone/iph42ab2f3a7/ios)、[Google Chrome](https://support.google.com/chrome/answer/9658361?hl=zh-Hant&co=GENIE.Platform%3DAndroid)。
 
-[一鍵部署到 Render](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fj0932290708-ai%2FAI-Learning-Assistant%2Ftree%2Ffeature%2Fintegration) · [完整部署步驟](DEPLOY.md)
+## 本機執行
 
-設定檔使用免費 Node Web Service，從 `feature/integration` 部署。網頁與 AI API 共用同一服務，Gemini 金鑰在 Render 後端設定。GitHub Pages 維持示範版，正式 AI 版需使用部署後的網址。
+1. 使用 Node.js 20 以上版本，執行 `npm ci`。
+2. 依 `.env.example` 設定 `GEMINI_API_KEY`，不要把金鑰放入前端或提交到版本庫。
+3. 執行 `npm start`，開啟 `http://127.0.0.1:3000`。
 
-## 安裝成 App
+`GEMINI_MODEL` 可指定模型。八科各自有 `prompt.js`、`solver.js` 與 fake AI 測試，統一由 `src/subjects/registry.js` 分派。
 
-若要建立可分享的真 AI 版本，先依下方「部署真 AI 版本」完成後端部署，再從部署後的網址安裝。
+## API
 
-用支援 PWA 的瀏覽器開啟網站後，按頁首的「安裝 App」。安裝完成後，電腦桌面或手機主畫面會出現「AI 學習助手」圖示。若瀏覽器沒有直接跳出視窗，可從瀏覽器選單選擇「安裝應用程式」或「加入主畫面」。
+`POST /api/solve` 接受 `{ "subject": "english", "method": "grammar", "question": "She go to school every day." }`，回傳 `success`、`subject`、實際 `method`、`steps`、`answer`，以及科目需要的 `explanation`、`table` 或 `code`。
 
-App 的頁面外殼可以離線開啟；AI 解題仍需要網路與後端 API。
+`POST /api/recognize` 接受 `{ "mimeType": "image/png", "data": "純 base64 圖片資料" }`，回傳 `{ "success": true, "text": "辨識文字", "warnings": [] }`。辨識不到題目時 `text` 可以為空字串，由前端請使用者重拍。資料格式、檔案標頭及解碼後大小均需通過驗證；辨識與解題共用限流、同時請求數及逾時保護。
 
-## API 格式
+回應包含 `requestId`。前端不會執行 AI 回傳的 HTML 或程式碼。
 
-`POST /api/solve`
+## 驗證與限制
 
-```json
-{
-  "subject": "english",
-  "method": "grammar",
-  "question": "She go to school every day."
-}
-```
+- `npm test`：八科、HTTP API、圖片驗證、取消與逾時、前端互動及離線快取測試。
+- `npm run check:syntax`：主要程式語法檢查。
+- 自動化測試使用 fake AI，不代表真實模型準確率；實際圖片辨識另以正式網站驗收。
+- AI 的解題、辨識及引用均可能出錯，請核對原題與可靠資料。圖解按鈕為已標示的規則式功能，僅支援可確認的格式。
+- 收藏目前保留最終答案，未保存完整步驟與表格。
+- 手機尺寸的瀏覽器驗證不等於實體裝置安裝驗收；實體手機是否安裝成功需由裝置確認。
 
-基本回應：
-
-```json
-{
-  "success": true,
-  "subject": "english",
-  "method": "grammar",
-  "steps": ["Identify the error", "Apply the grammar rule"],
-  "answer": "She goes to school every day.",
-  "explanation": "The verb must agree with the third-person singular subject."
-}
-```
-
-使用 `auto` 時，AI 會回傳實際選用的 method，前端會顯示這個結果。
-
-## 驗證
-
-- `npm test`：科目測試、API 分派、輸入驗證、錯誤處理與前端結構
-- `npm run check:syntax`：主要 JavaScript 檔案語法檢查
-
-自動測試使用 fake AI，不會呼叫真實 Gemini API，所以不會消耗 API 額度。
-
-## 目前邊界
-
-- 圖片區目前只提供預覽，沒有假裝已完成 OCR。
-- 本版專注於八科解題架構、結構化輸出、收藏與基本錯誤處理。
-- 程式設計科只分析與回答程式問題，不會執行使用者提供的程式碼。

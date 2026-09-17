@@ -10,6 +10,7 @@ import { requestId } from './middleware/requestId.js';
 import { validateRequest } from './middleware/validateRequest.js';
 import { solveRequestSchema } from './schemas/requestSchemas.js';
 import { Semaphore } from './services/concurrencyLimiter.js';
+import { imageRequestSchema, recognizeImage } from './services/recognizeImage.js';
 import { solveSubject } from './subjects/registry.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -64,6 +65,8 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
   app.locals.logger = logger;
 
   app.use(requestId);
+  // Image base64 adds about a third to the decoded 5 MB image limit.
+  app.use('/api/recognize', solveRateLimiter, express.json({ limit: '7mb' }));
   app.use(express.json({ limit: '1mb' }));
 
   const publicDir = path.join(__dirname, '../public');
@@ -82,11 +85,8 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
     res.status(ready ? 200 : 503).json({ ready });
   });
 
-  app.post(
-    '/api/solve',
-    solveRateLimiter,
-    validateRequest(solveRequestSchema),
-    async (req, res, next) => {
+  function aiHandler(task) {
+    return async (req, res, next) => {
       let permit;
       const controller = new AbortController();
       const onClose = () => {
@@ -101,11 +101,6 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
           throw error;
         }
 
-        const input = req.validatedBody;
-        logger.log?.(
-          `[AI] solve subject=${input.subject} method=${input.method} requestId=${req.requestId}`
-        );
-
         permit = await concurrencyLimiter.acquire();
         const activePermit = permit;
         const requestAiService = {
@@ -119,7 +114,8 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
           }
         };
         // Keep the slot until the actual model request settles, even after HTTP timeout.
-        const work = solveSubject(input, requestAiService).finally(() => activePermit.release());
+        const work = Promise.resolve().then(() => task(req.validatedBody, requestAiService))
+          .finally(() => activePermit.release());
         permit = null;
         const result = await withTimeout(
           work,
@@ -129,7 +125,6 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
 
         res.status(200).json({
           success: true,
-          question: input.question,
           ...result,
           requestId: req.requestId
         });
@@ -139,7 +134,23 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
         res.off('close', onClose);
         permit?.release();
       }
-    }
+    };
+  }
+
+  app.post(
+    '/api/solve',
+    solveRateLimiter,
+    validateRequest(solveRequestSchema),
+    aiHandler(async (input, service) => ({
+      question: input.question,
+      ...await solveSubject(input, service)
+    }))
+  );
+
+  app.post(
+    '/api/recognize',
+    validateRequest(imageRequestSchema),
+    aiHandler(recognizeImage)
   );
 
   app.use((req, res) => {
