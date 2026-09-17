@@ -16,8 +16,10 @@ export function errorHandler(err, req, res, next) {
     || (Number.isInteger(err.statusCode) ? err.statusCode : null)
     || (Number.isInteger(err.status) ? err.status : 500);
 
-  const code = parserError?.code || err.code || 'INTERNAL_ERROR';
+  const code = parserError?.code || err.code
+    || (statusCode === 503 ? 'AI_UPSTREAM_UNAVAILABLE' : 'INTERNAL_ERROR');
   const safeServerMessages = {
+    AI_UPSTREAM_UNAVAILABLE: 'AI 服務目前忙碌，請稍後再試。',
     AI_SERVICE_UNAVAILABLE: 'AI service is not configured',
     AI_TIMEOUT: 'AI service took too long to respond',
     AI_CONCURRENCY_LIMIT: 'AI service is busy, please try again shortly'

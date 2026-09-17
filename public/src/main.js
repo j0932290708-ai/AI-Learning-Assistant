@@ -458,7 +458,7 @@ async function solve() {
         <strong>❌ 解題失敗</strong>
         <p>${escapeHtml(error.message)}</p>
         <p class="small">
-          請確認後端服務與 API key 設定。
+          請稍後再試；若持續無法解題，請聯絡網站管理者。
         </p>
       </div>
     `;

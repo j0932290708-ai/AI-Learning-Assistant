@@ -89,6 +89,30 @@ test('malformed and oversized JSON receive clear status codes', async () => {
   });
 });
 
+test('upstream overload gives a safe retry message and releases capacity', async () => {
+  let calls = 0;
+  const aiService = { models: { generateContent: async () => {
+    if (calls++ === 0) {
+      const error = new Error('upstream internal details must not reach students');
+      error.status = 503;
+      throw error;
+    }
+    return { text: fakeAnswer() };
+  } } };
+  const app = createApp({
+    services: { aiService, concurrencyLimiter: new Semaphore(1, 0) },
+    logger: quietLogger
+  });
+  await withServer(app, async (baseUrl) => {
+    const response = await solveRequest(baseUrl);
+    assert.equal(response.status, 503);
+    const body = await response.json();
+    assert.equal(body.error.code, 'AI_UPSTREAM_UNAVAILABLE');
+    assert.equal(body.error.message, 'AI 服務目前忙碌，請稍後再試。');
+    assert.equal((await solveRequest(baseUrl)).status, 200);
+  });
+});
+
 test('a slow AI request returns a 504 timeout', async () => {
   const aiService = {
     models: { generateContent: () => new Promise(() => {}) }
