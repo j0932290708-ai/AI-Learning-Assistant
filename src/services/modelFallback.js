@@ -8,6 +8,9 @@ export async function generateWithFallback(client, request, model, fallbackModel
       throw error;
     }
     onFallback(model, fallbackModel);
-    return client.models.generateContent({ ...request, model: fallbackModel });
+    const config = fallbackModel === 'gemini-3.7-flash'
+      ? { ...request.config, thinkingConfig: { thinkingLevel: 'low', ...request.config?.thinkingConfig } }
+      : request.config;
+    return client.models.generateContent({ ...request, model: fallbackModel, config });
   }
 }

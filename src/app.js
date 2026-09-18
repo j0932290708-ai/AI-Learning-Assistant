@@ -61,7 +61,7 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
     : createDefaultAiService();
   // Reject excess requests promptly instead of leaving students in an unbounded wait.
   const concurrencyLimiter = services.concurrencyLimiter || new Semaphore(2, 0);
-  const aiTimeoutMs = config.aiTimeoutMs || 30_000;
+  const aiTimeoutMs = config.aiTimeoutMs || 60_000;
   const solveRateLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 30 });
   app.locals.logger = logger;
 

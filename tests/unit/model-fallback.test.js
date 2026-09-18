@@ -18,10 +18,11 @@ test('temporary 503 uses fallback once with identical image data and cancellatio
     if (calls.length === 1) throw Object.assign(new Error('busy'), { status: 503 });
     return { text: 'recognized' };
   } } };
-  assert.equal((await generateWithFallback(client, request, 'primary', 'backup')).text, 'recognized');
-  assert.deepEqual(calls.map((call) => call.model), ['primary', 'backup']);
+  assert.equal((await generateWithFallback(client, request, 'primary', 'gemini-3.7-flash')).text, 'recognized');
+  assert.deepEqual(calls.map((call) => call.model), ['primary', 'gemini-3.7-flash']);
   assert.equal(calls[1].contents, request.contents);
   assert.equal(calls[1].config.abortSignal, controller.signal);
+  assert.equal(calls[1].config.thinkingConfig.thinkingLevel, 'low');
 });
 
 test('quota and authentication errors are not retried', async () => {

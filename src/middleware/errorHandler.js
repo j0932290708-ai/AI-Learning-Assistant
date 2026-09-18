@@ -22,8 +22,8 @@ export function errorHandler(err, req, res, next) {
     AI_UPSTREAM_UNAVAILABLE: 'AI 服務目前忙碌，請稍後再試。',
     IMAGE_RECOGNITION_INVALID: '圖片辨識結果無法讀取，請重試或改用手動輸入。',
     AI_SERVICE_UNAVAILABLE: 'AI service is not configured',
-    AI_TIMEOUT: 'AI service took too long to respond',
-    AI_CONCURRENCY_LIMIT: 'AI service is busy, please try again shortly'
+    AI_TIMEOUT: 'AI 回答等候過久，請稍後再試或把題目拆成較短的問題。',
+    AI_CONCURRENCY_LIMIT: '目前同時解題的人較多，請稍後再試。'
   };
   const message = parserError?.message || (statusCode >= 500
     ? (safeServerMessages[code] || 'Internal server error')

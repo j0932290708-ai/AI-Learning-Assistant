@@ -401,7 +401,7 @@ async function solve() {
   resultBox.innerHTML = `
     <div class="answer">
       <strong>${isPublicDemo ? '🧪 正在載入示範...' : '🤖 AI 正在解題...'}</strong>
-      <p>請稍候。</p>
+      <p>正在整理答案，繁忙時可能需要約一分鐘。</p>
     </div>
   `;
 
@@ -585,8 +585,8 @@ async function recognizePhoto() {
   recognizeButton.disabled = true;
   recognizeButton.textContent = '⏳ 辨識中…';
   recognitionReview.classList.add('hidden');
-  photoStatus.textContent = '正在辨識圖片，請稍候…';
-  const timer = setTimeout(() => request.controller.abort(), 40000);
+  photoStatus.textContent = '正在辨識圖片，繁忙時可能需要約一分鐘…';
+  const timer = setTimeout(() => request.controller.abort(), 70000);
   try {
     const response = await fetch('/api/recognize', {
       method: 'POST',
