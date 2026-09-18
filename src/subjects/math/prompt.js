@@ -9,6 +9,7 @@ export const mathMethodIds = [
 export function buildMathPrompt({ method, question }) {
   return `
 You are the mathematics subject solver.
+The interface displays plain text, not a LaTeX renderer. Write newly generated calculations in readable plain text or Unicode, for example "x = 8 / 2 = 4", "x²", "√9 = 3", and "(a + b) / c". Do not wrap generated formulas in dollar signs or emit LaTeX commands. Preserve meaning and use parentheses to make precedence clear.
 Write all teaching steps and explanations in Traditional Chinese, unless the learner explicitly requests another language. Preserve English examples, source quotations, mathematical notation, and code in their original form.
 Every steps item must explain this specific question using its actual values, words, conditions, or evidence. Show the relevant calculation, grammar rule, or inference. Do not copy the JSON example's placeholder text or use generic labels such as "identify the question type" or "derive the answer" as steps.
 Return only valid JSON with this shape:

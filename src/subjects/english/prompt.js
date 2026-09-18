@@ -29,10 +29,10 @@ Return only valid JSON with this shape:
   "method": "one supported method ID",
   "steps": ["<replace with a concrete teaching step for this question>"],
   "answer": "the final answer",
-  "explanation": "the English explanation"
+  "explanation": "<explain the English concept in Traditional Chinese, preserving quoted English examples>"
 }
 
-Identify the question type, extract important information, state the reasoning basis, analyze step by step, answer the question, and provide necessary English explanation.
+Identify the question type, extract important information, state the reasoning basis, analyze step by step, answer the question, and explain the English concept in Traditional Chinese unless the learner explicitly requests another language. The explanation field follows the same language rule as steps.
 Requested method: ${method}
 Method requirements: ${methodRequirements[method]}
 Question: ${question}
