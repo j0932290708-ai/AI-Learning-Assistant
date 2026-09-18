@@ -34,7 +34,7 @@
 
 `GEMINI_MODEL` 可指定模型。八科各自有 `prompt.js`、`solver.js` 與 fake AI 測試，統一由 `src/subjects/registry.js` 分派。
 
-主要模型回報暫時無法服務（503）時，會用 `gemini-3.7-flash` 備援一次，以 low thinking 減少回應等待；兩次模型呼叫共用 60 秒上限與取消訊號。可設定 `GEMINI_FALLBACK_MODEL` 更換備援模型，或設為 `none` 停用。額度、認證等其他錯誤不會觸發備援。
+主要模型回報暫時無法服務（503）時，會用較輕量的 `gemini-3.5-flash-lite` 備援一次；兩次模型呼叫共用 60 秒上限與取消訊號。可設定 `GEMINI_FALLBACK_MODEL` 更換備援模型，或設為 `none` 停用。若選用 `gemini-3.7-flash` 備援，會套用 low thinking。額度、認證等其他錯誤不會觸發備援。
 
 ## API
 
