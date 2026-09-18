@@ -34,6 +34,8 @@
 
 `GEMINI_MODEL` 可指定模型。八科各自有 `prompt.js`、`solver.js` 與 fake AI 測試，統一由 `src/subjects/registry.js` 分派。
 
+主要模型回報暫時無法服務（503）時，會用 `gemini-3.7-flash` 備援一次，並共用原本的逾時與取消訊號。可設定 `GEMINI_FALLBACK_MODEL` 更換備援模型，或設為 `none` 停用。額度、認證等其他錯誤不會觸發備援。
+
 ## API
 
 `POST /api/solve` 接受 `{ "subject": "english", "method": "grammar", "question": "She go to school every day." }`，回傳 `success`、`subject`、實際 `method`、`steps`、`answer`，以及科目需要的 `explanation`、`table` 或 `code`。

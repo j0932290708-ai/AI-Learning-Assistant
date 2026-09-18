@@ -11,11 +11,14 @@ import { validateRequest } from './middleware/validateRequest.js';
 import { solveRequestSchema } from './schemas/requestSchemas.js';
 import { Semaphore } from './services/concurrencyLimiter.js';
 import { imageRequestSchema, recognizeImage } from './services/recognizeImage.js';
+import { generateWithFallback } from './services/modelFallback.js';
 import { solveSubject } from './subjects/registry.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL === 'none'
+  ? null : (process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.7-flash');
 
 function createDefaultAiService() {
   if (!process.env.GEMINI_API_KEY) {
@@ -29,10 +32,8 @@ function createDefaultAiService() {
   return {
     models: {
       generateContent(request) {
-        return client.models.generateContent({
-          ...request,
-          model: MODEL
-        });
+        return generateWithFallback(client, request, MODEL, FALLBACK_MODEL,
+          (primary, fallback) => console.warn(`[AI] temporary model outage: ${primary} -> ${fallback}`));
       }
     }
   };
