@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#4f46e5" />
+    <meta name="theme-color" content="#163e34" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="AI 學習助手" />
@@ -12,235 +12,12 @@
     <link rel="apple-touch-icon" href="/icons/app-icon-192.png" />
     <title>AI 全科智慧學習助手</title>
     <script type="module" src="/src/main.js"></script>
-    <style>
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        background: #f1f5f9;
-        color: #1e293b;
-        font-family: "Microsoft JhengHei", Arial, sans-serif;
-      }
-      header {
-        background: linear-gradient(135deg, #4f46e5, #7c3aed);
-        color: white;
-        padding: 28px 20px;
-        text-align: center;
-      }
-      header h1 { margin: 0 0 8px; }
-      header p { margin: 0; opacity: 0.9; }
-      .mode-banner {
-        max-width: 900px;
-        margin: 14px auto 0;
-        padding: 10px 14px;
-        border-radius: 10px;
-        background: #fef3c7;
-        color: #78350f;
-        font-weight: 700;
-      }
-      .install-area { margin-top: 14px; }
-      .install-button {
-        border: 1px solid rgba(255, 255, 255, 0.7);
-        border-radius: 999px;
-        background: white;
-        color: #4338ca;
-        padding: 9px 16px;
-        font-weight: bold;
-      }
-      .install-button:hover { background: #eef2ff; }
-      #install-status {
-        min-height: 20px;
-        margin: 8px 0 0;
-        font-size: 14px;
-      }
-      .container {
-        max-width: 1200px;
-        margin: 25px auto;
-        padding: 0 15px;
-      }
-      .card {
-        background: white;
-        border-radius: 18px;
-        padding: 22px;
-        margin-bottom: 20px;
-        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.07);
-      }
-      h2 { margin-top: 0; }
-      .subjects {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 12px;
-      }
-      .subject {
-        padding: 18px 10px;
-        border: 2px solid #e2e8f0;
-        border-radius: 14px;
-        background: white;
-        cursor: pointer;
-        font-size: 16px;
-      }
-      .subject:hover { border-color: #6366f1; }
-      .subject.active {
-        border-color: #4f46e5;
-        background: #eef2ff;
-        color: #4338ca;
-        font-weight: bold;
-      }
-      .icon { display: block; font-size: 30px; margin-bottom: 8px; }
-      textarea {
-        width: 100%;
-        min-height: 180px;
-        border: 2px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 15px;
-        font-size: 17px;
-        resize: vertical;
-      }
-      textarea:focus {
-        outline: none;
-        border-color: #6366f1;
-      }
-      button {
-        font-family: inherit;
-        cursor: pointer;
-      }
-      .btn {
-        border: 0;
-        border-radius: 10px;
-        padding: 11px 18px;
-        margin: 5px 3px;
-        font-size: 15px;
-      }
-      .primary { background: #4f46e5; color: white; }
-      .primary:hover { background: #4338ca; }
-      .gray { background: #e2e8f0; color: #334155; }
-      .orange { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
-      .green { background: #dcfce7; color: #166534; }
-      .red { background: #fee2e2; color: #991b1b; }
-      .method-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 10px;
-      }
-      .method {
-        padding: 15px;
-        background: white;
-        border: 2px solid #e2e8f0;
-        border-radius: 10px;
-        text-align: left;
-      }
-      .method.active {
-        border-color: #4f46e5;
-        background: #eef2ff;
-      }
-      .result {
-        line-height: 1.9;
-      }
-      .answer {
-        background: #ecfdf5;
-        border-left: 5px solid #10b981;
-        padding: 17px;
-        border-radius: 10px;
-        margin: 15px 0;
-      }
-      .formula {
-        background: #eff6ff;
-        border-left: 5px solid #3b82f6;
-        padding: 17px;
-        border-radius: 10px;
-        margin: 15px 0;
-      }
-      .step {
-        background: #f8fafc;
-        border-left: 4px solid #6366f1;
-        padding: 15px;
-        margin: 12px 0;
-        border-radius: 8px;
-      }
-      .step b { color: #4338ca; }
-      .hint {
-        background: #fffbeb;
-        border-left: 5px solid #f59e0b;
-        padding: 17px;
-        border-radius: 10px;
-        margin: 12px 0;
-      }
-      .question { padding: 15px; border-bottom: 1px solid #e2e8f0; }
-      .question:last-child { border-bottom: 0; }
-      .badge {
-        display: inline-block;
-        padding: 4px 9px;
-        border-radius: 20px;
-        background: #eef2ff;
-        color: #4338ca;
-        font-size: 13px;
-      }
-      .small { color: #64748b; font-size: 14px; }
-      #preview {
-        max-width: 100%;
-        max-height: 400px;
-        display: none;
-        margin-top: 15px;
-        border-radius: 12px;
-      }
-      .draw-button { background: #7c3aed; color: white; }
-      .visual-result {
-        overflow-x: auto;
-        min-height: 90px;
-      }
-      .visual-result svg {
-        display: block;
-        width: 100%;
-        height: auto;
-        max-width: 720px;
-        margin-top: 12px;
-      }
-      .visual-summary {
-        margin-top: 12px;
-        padding: 12px 14px;
-        border-radius: 10px;
-        background: #f8fafc;
-        color: #334155;
-        line-height: 1.6;
-      }
-      .annotation-board {
-        display: grid;
-        grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr);
-        gap: 16px;
-        margin-top: 14px;
-      }
-      .annotation-passage,
-      .annotation-note {
-        padding: 16px;
-        border-radius: 12px;
-      }
-      .annotation-passage {
-        background: #fff7ed;
-        border: 1px solid #fdba74;
-        font-size: 18px;
-        line-height: 1.9;
-      }
-      .annotation-note {
-        background: #f5f3ff;
-        border-left: 4px solid #7c3aed;
-        margin-bottom: 10px;
-      }
-      .hidden { display: none; }
-      button:disabled { cursor: wait; opacity: 0.6; }
-      .result, .question, #photoStatus { overflow-wrap: anywhere; }
-      .install-help { max-width: 620px; margin: 12px auto 0; text-align: left; line-height: 1.7; }
-      .install-help a { color: white; }
-      input[type="file"] { max-width: 100%; }
-      @media (max-width: 600px) {
-        .container { padding: 0 10px; }
-        .card { padding: 16px; }
-        .annotation-board { grid-template-columns: 1fr; }
-      }
-    </style>
+    <link rel="stylesheet" href="/blackboard.css" />
   </head>
   <body data-app-mode="api">
     <header>
-      <h1>🧠 AI 全科智慧學習助手</h1>
-      <p>不只給答案，更教你「為什麼這樣做」</p>
+      <div class="brand"><span class="eyebrow">TODAY'S CLASS · 一起學懂</span><h1>AI 全科學習黑板</h1>
+      <p>把題目寫上來，我們一步一步解。</p></div>
       <div id="mode-banner" class="mode-banner hidden" role="status"></div>
       <div class="install-area">
         <button id="install-button" class="install-button" type="button">📲 安裝 App</button>
@@ -257,7 +34,7 @@
     </header>
 
     <div class="container">
-      <div class="card">
+      <div class="card subject-card">
         <h2>📚 選擇科目</h2>
         <div class="subjects">
           <button class="subject active" data-subject="math" type="button"><span class="icon">🧮</span>數學</button>
@@ -271,24 +48,28 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card question-card">
         <h2>📝 題目</h2>
         <textarea id="question" aria-label="題目" maxlength="5000" placeholder="把題目貼在這裡，或先在下方辨識圖片……"></textarea>
         <div id="previewText" class="small"></div>
-        <br />
+        <div class="actions">
         <button class="btn primary" id="solve-button" type="button">🚀 開始解題</button>
         <button class="btn gray" id="save-button" type="button">⭐ 收藏</button>
-        <button class="btn draw-button" id="ai-draw-button" type="button">🎨 題目圖解（規則式）</button>
+        <button class="btn draw-button" id="ai-draw-button" type="button">🎨 題目圖解（規則式）</button></div>
       </div>
 
-      <div class="card">
+      <div class="card photo-card">
         <h2>📷 拍照／上傳題目</h2>
-        <label for="photo">選擇題目圖片</label>
-        <input id="photo" type="file" accept="image/png,image/jpeg,image/webp" />
-        <p><label for="camera">用手機拍照</label>
-        <input id="camera" type="file" accept="image/*" capture="environment" /></p>
+        <div class="photo-actions">
+<button class="btn primary" id="open-camera-button" type="button">📷 開啟相機</button>
+<button class="btn gray" id="choose-photo-button" type="button">▧ 從相簿選圖</button>
+<input id="photo" type="file" accept="image/png,image/jpeg,image/webp" aria-label="選擇題目圖片" hidden />
+<input id="camera" type="file" accept="image/*" capture="environment" aria-label="系統相機" hidden />
+</div>
+<div class="target-field"><label for="target-number">只解第幾題？</label><input id="target-number" type="text" inputmode="numeric" maxlength="8" placeholder="例如 174" /></div>
+<p class="small">照片有多題時請填題號，留空則辨識整張。也可以在題目欄輸入「第 174 題」再開始解題。</p>
         <img id="preview" alt="題目預覽" />
-        <p class="small">支援 PNG、JPEG、WebP，最大 5 MB。按「辨識圖片」才會將圖片送至本站後端與 Google Gemini 辨識；本站不保存圖片。請只拍題目，辨識後先核對文字、數字與圖形條件。</p>
+        <p class="small">支援 PNG、JPEG、WebP，最大 5 MB。按「辨識圖片」，或選圖後使用照片開始解題，會將圖片送至本站與 Google Gemini；本站不保存圖片。請只拍題目，辨識後先核對文字、數字與圖形條件。</p>
         <button class="btn primary" id="recognize-button" type="button" disabled>🔎 辨識圖片</button>
         <button class="btn gray" id="clear-photo-button" type="button">移除圖片</button>
         <div id="photoStatus" role="status" aria-live="polite"></div>
@@ -299,7 +80,7 @@
         </div>
       </div>
 
-      <div class="card" id="methodBox">
+      <div class="card method-card" id="methodBox">
         <h2>🧠 選擇解題方法</h2>
         <p>每個科目會顯示適合的方法；不確定時可選「AI 自動選擇」。</p>
         <div class="method-grid" id="method-grid">
@@ -307,7 +88,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card result-card">
         <h2>📖 解題結果</h2>
         <p class="small">AI 可能出錯，請核對計算、引文與重要觀念；遇到不清楚的條件可補充後再問。</p>
         <div id="result" class="result" aria-live="polite">
@@ -315,18 +96,30 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card visual-card">
         <h2>🎨 題目視覺圖解</h2>
         <div id="visual-result" class="visual-result" aria-live="polite">
           <p class="small">輸入支援格式的題目後按「題目圖解」，會以規則產生電路圖、函數圖或注釋圖；無法確認時不會猜圖。</p>
         </div>
       </div>
 
-      <div class="card">
-        <h2>⭐ 我的題庫</h2>
+      <div class="card bank-card">
+        <h2>⭐ 我的複習題庫</h2>
+<div class="backup-tools"><button class="btn gray" id="export-bank-button" type="button">↓ 匯出 JSON 備份</button><button class="btn gray" id="import-bank-button" type="button">↑ 匯入 JSON 備份</button><input id="import-bank-file" type="file" accept="application/json,.json" aria-label="選擇題庫備份" hidden /></div>
+<p class="small">最多保存 20 題，保留題目與最終答案。清除瀏覽器資料前請先匯出；匯入會合併並略過重複題目，不會覆蓋原有題庫。</p>
+<p id="bank-status" role="status" aria-live="polite"></p>
         <div id="bank"></div>
       </div>
 
     </div>
-  </body>
+  <dialog id="camera-dialog" aria-labelledby="camera-title">
+<div class="dialog-heading"><h2 id="camera-title">拍下這一道題</h2><button class="btn gray" id="close-camera-button" type="button">關閉</button></div>
+<p id="camera-status" role="status" aria-live="polite"></p>
+<video id="camera-video" autoplay muted playsinline aria-label="相機預覽"></video>
+<div class="actions"><button class="btn primary" id="capture-button" type="button" disabled>● 拍下題目</button><button class="btn gray" id="system-camera-button" type="button">系統相機／相簿</button></div>
+</dialog>
+</body>
 </html>
+
+
+

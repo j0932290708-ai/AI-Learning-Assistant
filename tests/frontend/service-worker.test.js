@@ -19,7 +19,7 @@ function worker(fetchImpl = async () => { throw new Error('offline'); }) {
   }, caches: {
     open: async () => cache,
     keys: async () => ['focus-clock-v1', 'ai-learning-assistant-v3',
-      `ai-learning-assistant:${scope}:v3`, `ai-learning-assistant:${scope}:v5`, `ai-learning-assistant:${scope}:v6`, `ai-learning-assistant:${scope}:v7`,
+      `ai-learning-assistant:${scope}:v3`, `ai-learning-assistant:${scope}:v5`, `ai-learning-assistant:${scope}:v6`, `ai-learning-assistant:${scope}:v7`, `ai-learning-assistant:${scope}:v8`,
       'ai-learning-assistant:https://example.com/other/:v3'],
     delete: async (name) => { deleted.push(name); }
   }, fetch: fetchImpl });
@@ -32,7 +32,7 @@ test('activation removes only this app caches, preserving other sites on the ori
   let pending;
   w.handlers.activate({ waitUntil: (promise) => { pending = promise; } });
   await pending;
-  assert.deepEqual(w.deleted, ['ai-learning-assistant-v3', `ai-learning-assistant:${scope}:v3`, `ai-learning-assistant:${scope}:v5`, `ai-learning-assistant:${scope}:v6`]);
+  assert.deepEqual(w.deleted, ['ai-learning-assistant-v3', `ai-learning-assistant:${scope}:v3`, `ai-learning-assistant:${scope}:v5`, `ai-learning-assistant:${scope}:v6`, `ai-learning-assistant:${scope}:v7`]);
 });
 
 test('installation bypasses stale HTTP cache for app shell files', async () => {

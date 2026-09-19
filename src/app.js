@@ -13,6 +13,7 @@ import { Semaphore } from './services/concurrencyLimiter.js';
 import { imageRequestSchema, recognizeImage } from './services/recognizeImage.js';
 import { generateWithFallback } from './services/modelFallback.js';
 import { solveSubject } from './subjects/registry.js';
+import { questionNumber } from '../public/src/api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -142,6 +143,12 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
     '/api/solve',
     solveRateLimiter,
     validateRequest(solveRequestSchema),
+    (req, res, next) => {
+      if (questionNumber(req.validatedBody.question) !== null) {
+        return res.status(400).json({ error: { code: 'QUESTION_TEXT_REQUIRED', message: '這是題號，還不是完整題目。請先上傳照片並辨識指定題號，或貼上完整題目。' }, requestId: req.requestId });
+      }
+      next();
+    },
     aiHandler(async (input, service) => ({
       question: input.question,
       ...await solveSubject(input, service)

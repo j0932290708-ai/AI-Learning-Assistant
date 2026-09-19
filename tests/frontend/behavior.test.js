@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { test } from 'node:test';
-import { escapeHtml, normalizeQuestion } from '../../public/src/api.js';
+import { escapeHtml, normalizeQuestion, questionNumber } from '../../public/src/api.js';
 
 // Run the real UI handlers with only the DOM surface they use.
 function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
@@ -15,7 +15,8 @@ function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
       value: '', innerHTML: '', textContent: '', disabled: false, style: {},
       classList: { add() {}, remove() {}, toggle() {} }, focus() {},
       addEventListener() {}, setAttribute() {}, removeAttribute(name) { delete this[name]; },
-      querySelectorAll() { return []; }
+      querySelectorAll() { return []; },
+      showModal() { this.open = true; }, close() { this.open = false; }, play: async () => {}
     });
     return elements.get(id);
   }
@@ -23,7 +24,13 @@ function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
     document: { body: { dataset: {} }, getElementById: element, querySelectorAll: () => [] },
     navigator: {}, addEventListener() {}, console: { error() {} },
     setTimeout, clearTimeout, AbortController, fetch: fetchImpl,
-    escapeHtml, normalizeQuestion, loadQuestionBank: () => [],
+    escapeHtml, normalizeQuestion, questionNumber, loadQuestionBank: () => [],
+    requestAI: async (url, payload, options) => {
+      const response = await fetchImpl(url, { body: JSON.stringify(payload), signal: options.signal });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data?.error?.message || 'AI 解題失敗');
+      return data;
+    },
     saveQuestionToBank: (...args) => { saved.push(args); return []; }
   });
   const source = readFileSync(new URL('../../public/src/main.js', import.meta.url), 'utf8')
@@ -43,6 +50,101 @@ test('AI truth table displays every input and output row without executing HTML'
   for (const header of ['A', 'B', 'Y']) assert.ok(html.includes(`>${header}</th>`));
   assert.match(html, /&lt;script&gt;/);
   assert.doesNotMatch(html, /<script>/);
+});
+
+test('a question-number-only request uses the photo and never calls text solve', async () => {
+  const calls = [];
+  const ui = loadUi(async (url, options) => {
+    calls.push({ url, body: JSON.parse(options.body) });
+    return { ok: true, json: async () => ({ success: true, text: '174. 2x + 3 = 11', questionNumber: '174', warnings: [] }) };
+  });
+  ui.element('question').value = '幫我解第174提';
+  ui.run("state.imageData = {mimeType:'image/png',data:'aGVsbG8='}");
+  await ui.run('solve()');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, '/api/recognize');
+  assert.equal(calls[0].body.questionNumber, '174');
+  assert.equal(ui.element('question').value, '幫我解第174提');
+  assert.equal(ui.element('recognized-text').value, '174. 2x + 3 = 11');
+});
+
+test('a question number without a photo asks for the full question without AI', async () => {
+  let calls = 0;
+  const ui = loadUi(async () => { calls++; });
+  ui.element('question').value = '174';
+  await ui.run('solve()');
+  assert.equal(calls, 0);
+  assert.match(ui.element('result').innerHTML, /完整題目/);
+});
+
+test('changing target cancels recognition and clears previously recognized text', async () => {
+  let resolve, signal;
+  const ui = loadUi((url, options) => { signal = options.signal; return new Promise((r) => { resolve = r; }); });
+  ui.run("state.imageData = {mimeType:'image/png',data:'aGVsbG8='}");
+  ui.element('target-number').value = '174';
+  const pending = ui.run('recognizePhoto()');
+  ui.element('target-number').value = '175';
+  ui.run('changeTargetNumber()');
+  resolve({ ok: true, json: async () => ({ success: true, text: 'old question' }) });
+  await pending;
+  assert.equal(signal.aborted, true);
+  assert.equal(ui.element('recognized-text').value, '');
+});
+
+test('camera permissions, release and late permission resolution are handled', async () => {
+  const ui = loadUi();
+  let stopped = 0;
+  const stream = { getTracks: () => [{ stop: () => stopped++ }] };
+  ui.context.navigator.mediaDevices = { getUserMedia: async () => stream };
+  await ui.run('openCamera()');
+  assert.equal(ui.element('camera-video').srcObject, stream);
+  assert.equal(ui.element('capture-button').disabled, false);
+  ui.run('closeCamera()');
+  assert.equal(stopped, 1);
+  assert.equal(ui.element('camera-dialog').open, false);
+  let finish;
+  ui.context.navigator.mediaDevices.getUserMedia = () => new Promise((r) => { finish = r; });
+  const pending = ui.run('openCamera()');
+  ui.run('closeCamera()');
+  finish(stream);
+  await pending;
+  assert.equal(stopped, 2);
+  assert.equal(ui.element('camera-video').srcObject, null);
+  ui.context.navigator.mediaDevices.getUserMedia = async () => { throw Object.assign(new Error('denied'), { name: 'NotAllowedError' }); };
+  await ui.run('openCamera()');
+  assert.match(ui.element('camera-status').textContent, /權限未開啟/);
+  assert.equal(ui.element('capture-button').disabled, true);
+});
+
+test('installed app hides install control and unsupported drawing links to steps', () => {
+  const ui = loadUi();
+  ui.context.navigator.standalone = true;
+  ui.run('updateInstalledUi()');
+  assert.equal(ui.element('install-button').hidden, true);
+  ui.element('question').value = '2 + 2';
+  ui.run('generateVisual()');
+  assert.match(ui.element('visual-result').innerHTML, /參閱|參考|閱讀解題步驟/);
+  assert.match(ui.element('visual-result').innerHTML, /href="#result"/);
+});
+
+test('camera capture compresses a snapshot and feeds normal photo validation', async () => {
+  const ui = loadUi();
+  let stopped = false, capturedFile, rendered = false;
+  ui.context.navigator.mediaDevices = { getUserMedia: async () => ({ getTracks: () => [{ stop: () => { stopped = true; } }] }) };
+  ui.context.File = class { constructor(parts, name, options) { this.name = name; this.type = options.type; this.size = 200; } };
+  ui.context.FileReader = class { readAsDataURL(file) { capturedFile = file; } };
+  const canvas = { getContext: () => ({ drawImage: () => { rendered = true; } }), toBlob: (callback, mime) => { assert.equal(mime, 'image/jpeg'); callback({}); } };
+  ui.context.document.createElement = () => canvas;
+  await ui.run('openCamera()');
+  ui.element('camera-video').videoWidth = 4000;
+  ui.element('camera-video').videoHeight = 3000;
+  ui.run('capturePhoto()');
+  assert.equal(canvas.width, 2000);
+  assert.equal(canvas.height, 1500);
+  assert.equal(rendered, true);
+  assert.equal(stopped, true);
+  assert.equal(capturedFile.type, 'image/jpeg');
+  assert.equal(ui.element('camera-dialog').open, false);
 });
 
 test('AI table supports column and row arrays, and omits an empty table', () => {

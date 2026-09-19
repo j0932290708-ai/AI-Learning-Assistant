@@ -2,7 +2,11 @@ import {
   escapeHtml,
   normalizeQuestion,
   loadQuestionBank,
-  saveQuestionToBank
+  saveQuestionToBank,
+  questionNumber,
+  requestAI,
+  exportQuestionBank,
+  importQuestionBank
 } from './api.js';
 
 const state = {
@@ -35,6 +39,13 @@ const photoInput = document.getElementById('photo');
 const photoPreview = document.getElementById('preview');
 const photoStatus = document.getElementById('photoStatus');
 const cameraInput = document.getElementById('camera');
+const targetNumberInput = document.getElementById('target-number');
+const cameraDialog = document.getElementById('camera-dialog');
+const cameraVideo = document.getElementById('camera-video');
+const cameraStatus = document.getElementById('camera-status');
+const captureButton = document.getElementById('capture-button');
+let cameraStream = null;
+let cameraSession = 0;
 const recognizeButton = document.getElementById('recognize-button');
 const clearPhotoButton = document.getElementById('clear-photo-button');
 const recognitionReview = document.getElementById('recognition-review');
@@ -163,6 +174,7 @@ function invalidateAnswerForInputChange() {
   }
 
   if (state.activeRequest && !sameRequestSelection(state.activeRequest)) {
+    state.activeRequest.controller?.abort();
     state.activeRequest = null;
     resultBox.innerHTML = `
       <div class="hint">
@@ -356,7 +368,7 @@ function formatStructuredAnswer(data) {
       ${data.complexity ? `<p>複雜度：${escapeHtml(typeof data.complexity === 'object' ? JSON.stringify(data.complexity) : data.complexity)}</p>` : ''}
       ${data.explanation ? `
         <div class="section-title">觀念解釋</div>
-        <p>${escapeHtml(data.explanation)}</p>
+        ${formatAIAnswer(data.explanation)}
       ` : ''}
     </div>
   `;
@@ -367,11 +379,27 @@ async function solve() {
     questionInput?.value || ''
   );
 
+  const target = questionNumber(question);
+  if ((target !== null || !question) && (state.image || state.imageData)) {
+    if (target !== null) targetNumberInput.value = target;
+    resultBox.innerHTML = '<div class="hint">先從照片找出題目，核對辨識文字並套用後，再開始解題。題號不會當成計算內容。</div>';
+    solveButton.disabled = true;
+    solveButton.textContent = '⏳ 先辨識照片…';
+    try { await recognizePhoto(); }
+    finally { solveButton.disabled = false; solveButton.textContent = defaultSolveButtonText; }
+    recognitionReview.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+  if (target !== null) {
+    resultBox.innerHTML = `<div class="hint">「${escapeHtml(question)}」是題號。請拍照／選圖後辨識，或輸入完整題目；我不會把 ${escapeHtml(target)} 當成題目來猜答案。</div>`;
+    return;
+  }
+
   if (!question) {
     resultBox.innerHTML = `
       <div class="answer">
         <strong>請先輸入題目</strong>
-        <p>你可以直接打字，或之後使用拍照功能。</p>
+        <p>你可以直接打字，或先用下方相機拍下題目。</p>
       </div>
     `;
     return;
@@ -392,6 +420,7 @@ async function solve() {
   state.solvedRequest = null;
   const request = Object.freeze({
     requestId: createRequestId(),
+    controller: new AbortController(),
     question,
     subject: state.subject,
     method: state.method
@@ -400,7 +429,7 @@ async function solve() {
 
   resultBox.innerHTML = `
     <div class="answer">
-      <strong>${isPublicDemo ? '🧪 正在載入示範...' : '🤖 AI 正在解題...'}</strong>
+      <span class="chalk-spinner" aria-hidden="true"></span><strong>${isPublicDemo ? '🧪 正在載入示範...' : '🤖 AI 正在解題...'}</strong>
       <p>正在整理答案，繁忙時可能需要約一分鐘。</p>
     </div>
   `;
@@ -416,23 +445,13 @@ async function solve() {
       await new Promise((resolve) => setTimeout(resolve, 350));
       data = createPublicDemoAnswer(request);
     } else {
-      const response = await fetch('/api/solve', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Request-ID': request.requestId
-        },
-        body: JSON.stringify({
+      data = await requestAI('/api/solve', {
           question: request.question,
           subject: request.subject,
           method: request.method
-        })
-      });
-
-      data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data?.error?.message || 'AI 解題失敗');
-      }
+        }, { signal: request.controller.signal, onStatus: (message) => {
+          if (state.activeRequest?.requestId === request.requestId) resultBox.innerHTML = `<div class="answer loading-note"><span class="chalk-spinner" aria-hidden="true"></span><strong>${escapeHtml(message)}</strong><p class="small">題目已保留，請不用重複按按鈕。</p></div>`;
+        } });
     }
 
     if (state.activeRequest?.requestId !== request.requestId) {
@@ -570,6 +589,16 @@ function clearPhoto() {
   photoStatus.textContent = '已移除圖片。';
 }
 
+function changeTargetNumber() {
+  state.recognitionRequest?.controller.abort();
+  state.recognitionRequest = null;
+  recognizedText.value = '';
+  recognitionReview.classList.add('hidden');
+  recognizeButton.disabled = !state.imageData;
+  recognizeButton.textContent = '🔎 辨識圖片';
+  photoStatus.textContent = '題號已變更，請重新辨識照片。';
+}
+
 async function recognizePhoto() {
   if (isPublicDemo) {
     photoStatus.textContent = '圖片辨識請使用正式 AI 解題版。';
@@ -579,29 +608,31 @@ async function recognizePhoto() {
     photoStatus.textContent = '請先選擇可讀取的圖片。';
     return;
   }
+  const entered = targetNumberInput.value.trim();
+  const target = entered ? questionNumber(entered) : questionNumber(questionInput.value);
+  if (entered && target === null) {
+    photoStatus.textContent = '題號請輸入數字，例如 174。';
+    return;
+  }
   state.recognitionRequest?.controller.abort();
-  const request = { controller: new AbortController(), image: state.image };
+  const request = { controller: new AbortController(), image: state.image, target, initialQuestion: questionInput.value };
   state.recognitionRequest = request;
   recognizeButton.disabled = true;
   recognizeButton.textContent = '⏳ 辨識中…';
   recognitionReview.classList.add('hidden');
+  recognizedText.value = '';
   photoStatus.textContent = '正在辨識圖片，繁忙時可能需要約一分鐘…';
-  const timer = setTimeout(() => request.controller.abort(), 70000);
   try {
-    const response = await fetch('/api/recognize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state.imageData),
-      signal: request.controller.signal
+    const data = await requestAI('/api/recognize', { ...state.imageData, ...(target !== null ? { questionNumber: target } : {}) }, {
+      signal: request.controller.signal,
+      onStatus: (message) => { if (state.recognitionRequest === request) photoStatus.textContent = message; }
     });
-    const data = await response.json();
     if (state.recognitionRequest !== request) return;
-    if (!response.ok || !data.success) throw new Error(data?.error?.message || '圖片辨識失敗，請稍後重試。');
     if (typeof data.text !== 'string' || data.text.length > maxQuestionLength) throw new Error('辨識結果無法使用，請重試。');
     recognizedText.value = data.text;
     const warnings = Array.isArray(data.warnings) ? data.warnings.join(' ') : '';
     photoStatus.textContent = data.text
-      ? `辨識完成，請核對並修改下方文字，再按「使用這段文字作為題目」。${warnings}`
+      ? `${target !== null ? `第 ${target} 題` : '圖片'}辨識完成，請核對並修改下方文字，再按「使用這段文字作為題目」。${warnings}`
       : `未辨識到清楚的題目，請重新拍照或手動輸入。${warnings}`;
     if (data.text) recognitionReview.classList.remove('hidden');
   } catch (error) {
@@ -610,13 +641,93 @@ async function recognizePhoto() {
       ? '辨識等候過久，請稍後重試。'
       : error.message;
   } finally {
-    clearTimeout(timer);
     if (state.recognitionRequest === request) {
       state.recognitionRequest = null;
       recognizeButton.disabled = !state.imageData;
       recognizeButton.textContent = '🔎 辨識圖片';
     }
   }
+}
+
+function closeCamera() {
+  cameraSession += 1;
+  cameraStream?.getTracks().forEach((track) => track.stop());
+  cameraStream = null;
+  cameraVideo.srcObject = null;
+  captureButton.disabled = true;
+  if (cameraDialog.open) cameraDialog.close();
+}
+
+async function openCamera() {
+  closeCamera();
+  const session = cameraSession;
+  cameraDialog.showModal();
+  cameraStatus.textContent = '正在開啟相機，請允許此網站使用相機。';
+  if (!navigator.mediaDevices?.getUserMedia) {
+    cameraStatus.textContent = '此瀏覽器無法直接開相機，請用下方「系統相機／相簿」，或改用 Chrome／Safari。';
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    if (session !== cameraSession || !cameraDialog.open) { stream.getTracks().forEach((track) => track.stop()); return; }
+    cameraStream = stream;
+    cameraVideo.srcObject = stream;
+    await cameraVideo.play();
+    if (session !== cameraSession) return;
+    captureButton.disabled = false;
+    cameraStatus.textContent = '對準完整題目與題號，保持清楚，再按「拍下題目」。';
+  } catch (error) {
+    if (session !== cameraSession) return;
+    cameraStream?.getTracks().forEach((track) => track.stop());
+    cameraStream = null;
+    cameraVideo.srcObject = null;
+    cameraStatus.textContent = error.name === 'NotAllowedError'
+      ? '相機權限未開啟。請到瀏覽器網站設定允許相機，或使用下方「系統相機／相簿」。'
+      : '目前無法開啟相機，可能正被其他 App 使用。請關閉後重試，或使用「系統相機／相簿」。';
+  }
+}
+
+function capturePhoto() {
+  if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) { cameraStatus.textContent = '相機畫面還沒準備好，請稍候再拍。'; return; }
+  const session = cameraSession;
+  const canvas = document.createElement('canvas');
+  const scale = Math.min(1, 2000 / Math.max(cameraVideo.videoWidth, cameraVideo.videoHeight));
+  canvas.width = Math.round(cameraVideo.videoWidth * scale);
+  canvas.height = Math.round(cameraVideo.videoHeight * scale);
+  canvas.getContext('2d').drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+  captureButton.disabled = true;
+  canvas.toBlob((blob) => {
+    if (session !== cameraSession) return;
+    if (!blob) { captureButton.disabled = false; cameraStatus.textContent = '照片未能儲存，請再拍一次。'; return; }
+    closeCamera();
+    handlePhotoUpload({ target: { files: [new File([blob], '題目照片.jpg', { type: 'image/jpeg' })] } });
+  }, 'image/jpeg', 0.88);
+}
+
+function downloadBank() {
+  const status = document.getElementById('bank-status');
+  try {
+    const blob = new Blob([exportQuestionBank()], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = `學習助手題庫-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    status.textContent = '已產生 JSON 備份，請到瀏覽器下載項目保存檔案。';
+  } catch (error) { status.textContent = `無法匯出：${error.message}`; }
+}
+
+async function uploadBank(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const status = document.getElementById('bank-status');
+  try {
+    if (file.size > 1024 * 1024) throw new Error('備份檔不可超過 1 MB。');
+    const result = importQuestionBank(await file.text());
+    renderBank(result.entries);
+    status.textContent = `已匯入 ${result.added} 題，重複題目自動略過；目前共 ${result.entries.length} 題。`;
+  } catch (error) { status.textContent = error.message; }
+  finally { event.target.value = ''; }
 }
 
 function applyRecognition() {
@@ -708,6 +819,9 @@ function handlePhotoUpload(event) {
 }
 
 function handleQuestionInput() {
+  if (state.recognitionRequest && questionNumber(questionInput.value) !== questionNumber(state.recognitionRequest.initialQuestion)) {
+    changeTargetNumber();
+  }
   state.question = normalizeQuestion(
     questionInput?.value || ''
   );
@@ -758,8 +872,18 @@ addEventListener('beforeinstallprompt', (event) => {
 
 addEventListener('appinstalled', () => {
   installPrompt = null;
+  installButton.hidden = true;
   showInstallStatus('App 安裝完成，可以從裝置圖示開啟。');
 });
+
+const standalone = typeof matchMedia === 'function' ? matchMedia('(display-mode: standalone)') : null;
+function updateInstalledUi() {
+  const installed = Boolean(standalone?.matches || navigator.standalone);
+  document.body.classList?.toggle('installed', installed);
+  if (installButton) installButton.hidden = installed;
+}
+updateInstalledUi();
+standalone?.addEventListener('change', updateInstalledUi);
 
 solveButton.textContent = defaultSolveButtonText;
 if (isPublicDemo && modeBanner) {
@@ -800,6 +924,19 @@ if (photoInput) {
 }
 
 cameraInput?.addEventListener('change', handlePhotoUpload);
+document.getElementById('open-camera-button')?.addEventListener('click', openCamera);
+document.getElementById('close-camera-button')?.addEventListener('click', closeCamera);
+captureButton?.addEventListener('click', capturePhoto);
+cameraDialog?.addEventListener('cancel', closeCamera);
+cameraDialog?.addEventListener('close', () => { if (cameraStream) closeCamera(); });
+document.getElementById('system-camera-button')?.addEventListener('click', () => { closeCamera(); cameraInput.click(); });
+addEventListener('pagehide', closeCamera);
+document.addEventListener?.('visibilitychange', () => { if (document.hidden) closeCamera(); });
+targetNumberInput?.addEventListener('input', changeTargetNumber);
+document.getElementById('export-bank-button')?.addEventListener('click', downloadBank);
+document.getElementById('choose-photo-button')?.addEventListener('click', () => photoInput.click());
+document.getElementById('import-bank-button')?.addEventListener('click', () => document.getElementById('import-bank-file').click());
+document.getElementById('import-bank-file')?.addEventListener('change', uploadBank);
 recognizeButton?.addEventListener('click', recognizePhoto);
 clearPhotoButton?.addEventListener('click', clearPhoto);
 applyRecognitionButton?.addEventListener('click', applyRecognition);
@@ -1039,6 +1176,8 @@ function generateVisual() {
     visualResult.innerHTML = `
       <span class="badge">${escapeHtml(subjectLabels[request.subject])}・無法可靠繪圖</span>
       <p class="hint"><strong>${escapeHtml(visual.error)}</strong></p>
+      <p>此題型暫不支援圖解，建議先閱讀解題步驟。</p>
+      <a class="btn gray" href="#result">查看解題步驟</a>
     `;
     return;
   }

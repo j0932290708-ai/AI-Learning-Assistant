@@ -1,8 +1,9 @@
 const CACHE_PREFIX = `ai-learning-assistant:${self.registration.scope}:`;
-const CACHE_NAME = `${CACHE_PREFIX}v7`;
+const CACHE_NAME = `${CACHE_PREFIX}v8`;
 const APP_SHELL = [
   './',
   './index.html',
+  './blackboard.css',
   './manifest.webmanifest',
   './src/main.js',
   './src/api.js',
