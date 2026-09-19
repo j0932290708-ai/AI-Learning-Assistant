@@ -91,6 +91,18 @@ test('changing target cancels recognition and clears previously recognized text'
   assert.equal(ui.element('recognized-text').value, '');
 });
 
+test('editing target after applying OCR replaces the old question with the new reference', () => {
+  const ui = loadUi();
+  ui.element('recognized-text').value = '174. 解 2x + 3 = 11';
+  ui.run('applyRecognition()');
+  ui.element('target-number').value = '175';
+  ui.run('changeTargetNumber()');
+  assert.equal(questionNumber(ui.element('question').value), '175');
+  ui.element('question').value = '請解第176題';
+  ui.run('handleQuestionInput()');
+  assert.equal(ui.element('target-number').value, '176');
+});
+
 test('camera permissions, release and late permission resolution are handled', async () => {
   const ui = loadUi();
   let stopped = 0;

@@ -16,6 +16,7 @@ const state = {
   image: null,
   imageData: null,
   recognitionRequest: null,
+  appliedRecognition: null,
   answer: null,
   activeRequest: null,
   solvedRequest: null
@@ -589,7 +590,7 @@ function clearPhoto() {
   photoStatus.textContent = '已移除圖片。';
 }
 
-function changeTargetNumber() {
+function changeTargetNumber({ syncQuestion = true } = {}) {
   state.recognitionRequest?.controller.abort();
   state.recognitionRequest = null;
   recognizedText.value = '';
@@ -597,6 +598,13 @@ function changeTargetNumber() {
   recognizeButton.disabled = !state.imageData;
   recognizeButton.textContent = '🔎 辨識圖片';
   photoStatus.textContent = '題號已變更，請重新辨識照片。';
+  if (syncQuestion && (questionNumber(questionInput.value) !== null
+      || normalizeQuestion(questionInput.value) === state.appliedRecognition)) {
+    const target = questionNumber(targetNumberInput.value);
+    questionInput.value = target !== null ? `第 ${target} 題` : '';
+    state.appliedRecognition = null;
+    handleQuestionInput();
+  }
 }
 
 async function recognizePhoto() {
@@ -738,6 +746,7 @@ function applyRecognition() {
   }
   questionInput.value = text;
   handleQuestionInput();
+  state.appliedRecognition = text;
   photoStatus.textContent = '已填入題目。請選擇科目與方法，再按「開始 AI 解題」。';
   questionInput.focus();
 }
@@ -819,8 +828,10 @@ function handlePhotoUpload(event) {
 }
 
 function handleQuestionInput() {
+  const target = questionNumber(questionInput.value);
+  if (target !== null) targetNumberInput.value = target;
   if (state.recognitionRequest && questionNumber(questionInput.value) !== questionNumber(state.recognitionRequest.initialQuestion)) {
-    changeTargetNumber();
+    changeTargetNumber({ syncQuestion: false });
   }
   state.question = normalizeQuestion(
     questionInput?.value || ''
