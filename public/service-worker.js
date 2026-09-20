@@ -1,5 +1,6 @@
 const CACHE_PREFIX = `ai-learning-assistant:${self.registration.scope}:`;
-const CACHE_NAME = `${CACHE_PREFIX}v8`;
+// Increment this version whenever app-shell HTML, CSS or JS changes.
+const CACHE_NAME = `${CACHE_PREFIX}v9`;
 const APP_SHELL = [
   './',
   './index.html',
@@ -12,13 +13,33 @@ const APP_SHELL = [
 ];
 const shellUrls = new Set(APP_SHELL.map((path) => new URL(path, self.registration.scope).href));
 
+async function fetchShell(request, cacheMode) {
+  const response = await fetch(request, { cache: cacheMode });
+  const type = response.headers.get('content-type') || '';
+  const pathname = new URL(request.url).pathname;
+  let valid = response.ok && response.type === 'basic';
+  if (pathname.endsWith('.js')) valid = valid && /javascript/i.test(type);
+  else if (pathname.endsWith('.css')) valid = valid && /text\/css/i.test(type);
+  else if (pathname.endsWith('/') || pathname.endsWith('/index.html')) {
+    valid = valid && /text\/html/i.test(type) && (await response.clone().text()).includes('data-app-mode="api"');
+  }
+  if (!valid) throw new Error('Invalid app-shell response');
+  return response;
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(
-      [...shellUrls].map((url) => new Request(url, { cache: 'reload' }))
-    ))
+    // Validate every response before storing any part of this new version.
+    // A hosting wake-up page must never become the installed offline homepage.
+    Promise.all([...shellUrls].map(async (url) => {
+      const request = new Request(url, { cache: 'reload' });
+      return [request, await fetchShell(request, 'reload')];
+    })).then(async (entries) => {
+      const cache = await caches.open(CACHE_NAME);
+      await Promise.all(entries.map(([request, response]) => cache.put(request, response)));
+      await self.skipWaiting();
+    })
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -44,39 +65,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .then(async (response) => {
-          if (response.ok && response.type === 'basic') {
-            const cache = await caches.open(CACHE_NAME);
-            await cache.put(event.request, response.clone());
-          }
-          return response;
-        })
-        .catch(async () => {
-          const cache = await caches.open(CACHE_NAME);
-          return (await cache.match(event.request))
-            || cache.match(new URL('./', self.registration.scope).href);
-        })
-    );
-    return;
-  }
-
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
-      // Online students should receive fixes even when an older script is cached.
-      try {
-        const response = await fetch(event.request, { cache: 'no-cache' });
-        if (response.ok && response.type === 'basic') {
-          await cache.put(event.request, response.clone());
-        }
-        return response;
-      } catch (error) {
-        const cached = await cache.match(event.request);
-        if (cached) return cached;
-        throw error;
-      }
+      // Return the installed shell immediately, even if a sleeping host or a
+      // captive network never settles. Updates arrive as a new worker version.
+      const cached = (await cache.match(event.request))
+        || (event.request.mode === 'navigate' ? await cache.match(new URL('./', self.registration.scope).href) : null);
+      if (cached) return cached;
+      const response = await fetchShell(event.request, 'no-cache');
+      await cache.put(event.request, response.clone());
+      return response;
     })
   );
 });

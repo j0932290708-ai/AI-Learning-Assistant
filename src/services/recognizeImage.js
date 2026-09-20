@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { parseAiJson } from '../subjects/parseAiJson.js';
+import { hasSafeImageDimensions } from './imageDimensions.js';
 
 const maxImageBytes = 5 * 1024 * 1024;
 const signatures = {
@@ -15,8 +16,9 @@ export const imageRequestSchema = z.object({
     .refine((data) => data.length % 4 === 0 && /^[A-Za-z0-9+/]*={0,2}$/.test(data), 'Invalid base64')
 }).strict().refine(({ mimeType, data }) => {
   const bytes = Buffer.from(data, 'base64');
-  return bytes.length <= maxImageBytes && bytes.toString('base64') === data && signatures[mimeType](bytes);
-}, { message: '圖片格式不符或超過 5 MB。' });
+  return bytes.length <= maxImageBytes && bytes.toString('base64') === data && signatures[mimeType](bytes)
+    && hasSafeImageDimensions(bytes, mimeType);
+}, { message: '圖片格式或尺寸不符：上限 5 MB、2000 萬像素、單邊 10000 像素，請使用PNG、JPEG 或 WebP。' });
 
 const resultSchema = z.object({
   text: z.string().trim().max(5000),

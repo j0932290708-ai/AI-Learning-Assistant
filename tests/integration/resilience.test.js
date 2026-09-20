@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import { createApp } from '../../src/app.js';
 import { Semaphore } from '../../src/services/concurrencyLimiter.js';
+import { createRateLimiter } from '../../src/middleware/rateLimiter.js';
 
 const quietLogger = { log() {}, error() {} };
 
@@ -183,4 +184,55 @@ test('timeout aborts the client request but retains capacity until the model set
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(concurrencyLimiter.getStats().active, 0);
   });
+});
+
+test('image and solve traffic share a limit before parsing, without limiting health checks', async () => {
+  let calls = 0;
+  const aiService = { models: { generateContent: async () => { calls++; } } };
+  await withServer(createApp({ services: { aiService }, logger: quietLogger }), async (baseUrl) => {
+    for (let i = 0; i < 31; i++) {
+      const response = await fetch(baseUrl + (i % 2 ? '/api/solve' : '/api/recognize'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': `192.0.2.${i + 1}` }, body: '{'
+      });
+      assert.equal(response.status, i < 30 ? 400 : 429);
+      if (i === 30) {
+        assert.ok(Number(response.headers.get('retry-after')) > 0);
+        assert.equal((await response.json()).error.code, 'RATE_LIMIT_EXCEEDED');
+      }
+    }
+    assert.equal(calls, 0);
+    assert.equal((await fetch(baseUrl + '/health')).status, 200);
+    assert.equal((await fetch(baseUrl + '/ready')).status, 200);
+  });
+});
+
+function attempt(limiter, ip) {
+  const result = { allowed: false, headers: {} };
+  const response = { setHeader(name, value) { result.headers[name] = value; },
+    status(code) { result.status = code; return this; }, json(body) { result.body = body; } };
+  limiter({ ip, requestId: 'test-request' }, response, () => { result.allowed = true; });
+  return result;
+}
+
+test('a global limiter applies across distinct addresses and resets after its window', () => {
+  let now = 1000;
+  const limiter = createRateLimiter({ max: 2, windowMs: 1000, keyGenerator: () => 'global', clock: () => now });
+  assert.equal(attempt(limiter, 'a').allowed, true);
+  assert.equal(attempt(limiter, 'b').allowed, true);
+  assert.equal(attempt(limiter, 'c').status, 429);
+  now = 2000;
+  assert.equal(attempt(limiter, 'd').allowed, true);
+});
+
+test('limiter capacity rejects new addresses without evicting active limits, then reclaims expired entries', () => {
+  let now = 0;
+  const limiter = createRateLimiter({ max: 1, maxClients: 2, windowMs: 1000, clock: () => now });
+  assert.equal(attempt(limiter, 'a').allowed, true);
+  assert.equal(attempt(limiter, 'b').allowed, true);
+  assert.equal(attempt(limiter, 'c').status, 429);
+  assert.equal(attempt(limiter, 'a').status, 429);
+  now = 1000;
+  assert.equal(attempt(limiter, 'c').allowed, true);
+  assert.equal(attempt(limiter, 'a').allowed, true);
+  assert.equal(attempt(limiter, 'b').status, 429);
 });

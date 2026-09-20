@@ -43,11 +43,23 @@ test('invalid image requests are rejected before calling AI', async () => {
   await withServer(ai, async (base) => {
     const overLimit = Buffer.alloc(5 * 1024 * 1024 + 1);
     Buffer.from(png, 'base64').copy(overLimit);
+    const oversizedDimensions = Buffer.from(png, 'base64');
+    oversizedDimensions.writeUInt32BE(5000, 16);
+    oversizedDimensions.writeUInt32BE(5000, 20);
+    const longSide = Buffer.from(png, 'base64');
+    longSide.writeUInt32BE(10001, 16);
     for (const body of [
       {}, { ...image, mimeType: 'image/svg+xml' }, { ...image, data: 'not base64' },
       { ...image, mimeType: 'image/jpeg' }, { ...image, data: 'aGVsbG8=' },
-      { ...image, data: overLimit.toString('base64') }, { ...image, extra: true }
-    ]) assert.equal((await post(base, body)).status, 400);
+      { ...image, data: overLimit.toString('base64') }, { ...image, extra: true },
+      { ...image, data: oversizedDimensions.toString('base64') },
+      { ...image, data: longSide.toString('base64') },
+      { ...image, data: Buffer.from(png, 'base64').subarray(0, 24).toString('base64') }
+    ]) {
+      const response = await post(base, body);
+      assert.equal(response.status, 400);
+      assert.match((await response.json()).error.message, /圖片或題號格式不符/);
+    }
     assert.equal(calls, 0);
   });
 });

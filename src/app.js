@@ -64,11 +64,14 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
   const concurrencyLimiter = services.concurrencyLimiter || new Semaphore(2, 0);
   const aiTimeoutMs = config.aiTimeoutMs || 60_000;
   const solveRateLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 30 });
+  const globalRateLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 60, keyGenerator: () => 'all-ai-requests' });
   app.locals.logger = logger;
 
   app.use(requestId);
+  // Bound total traffic even if client addresses vary or are hidden by a proxy.
+  app.use(['/api/solve', '/api/recognize'], globalRateLimiter, solveRateLimiter);
   // Image base64 adds about a third to the decoded 5 MB image limit.
-  app.use('/api/recognize', solveRateLimiter, express.json({ limit: '7mb' }));
+  app.use('/api/recognize', express.json({ limit: '7mb' }));
   app.use(express.json({ limit: '1mb' }));
 
   const publicDir = path.join(__dirname, '../public');
@@ -141,7 +144,6 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
 
   app.post(
     '/api/solve',
-    solveRateLimiter,
     validateRequest(solveRequestSchema),
     (req, res, next) => {
       if (questionNumber(req.validatedBody.question) !== null) {
@@ -157,7 +159,7 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
 
   app.post(
     '/api/recognize',
-    validateRequest(imageRequestSchema),
+    validateRequest(imageRequestSchema, '圖片或題號格式不符。請使用 5 MB 內、2,000 萬像素內且單邊不超過 10,000 像素的PNG、JPEG 或 WebP；題號請填 1–8 位數字。'),
     aiHandler(recognizeImage)
   );
 
