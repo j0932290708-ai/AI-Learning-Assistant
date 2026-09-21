@@ -23,7 +23,7 @@ function worker(fetchImpl = async () => { throw new Error('offline'); }) {
   }, caches: {
     open: async () => cache,
     keys: async () => ['focus-clock-v1', 'ai-learning-assistant-v3',
-      ...[3, 5, 6, 7, 8, 9].map((version) => `ai-learning-assistant:${scope}:v${version}`),
+      ...[3, 5, 6, 7, 8, 9, 10, 11].map((version) => `ai-learning-assistant:${scope}:v${version}`),
       'ai-learning-assistant:https://example.com/other/:v3'],
     delete: async (name) => { deleted.push(name); }
   }, fetch: async (request, options) => {
@@ -51,13 +51,15 @@ test('activation removes only this app old caches, preserving other sites and cu
   w.handlers.activate({ waitUntil: (promise) => { pending = promise; } });
   await pending;
   assert.deepEqual(w.deleted, ['ai-learning-assistant-v3',
-    ...[3, 5, 6, 7, 8].map((version) => `ai-learning-assistant:${scope}:v${version}`)]);
+    ...[3, 5, 6, 7, 8, 9, 10].map((version) => `ai-learning-assistant:${scope}:v${version}`)]);
 });
 
 test('installation fetches a fresh complete shell and caches valid responses', async () => {
   const w = worker(async (request) => shellResponse(request.url));
   await install(w);
-  assert.equal(w.requests.length, 8);
+  assert.equal(w.requests.length, 32);
+  assert.ok(w.entries.has(`${scope}vendor/katex/katex.min.js`));
+  assert.ok(w.requests.filter(({ request }) => request.url.endsWith('.woff2')).length >= 20);
   assert.ok(w.requests.every(({ request, options }) => request.cache === 'reload' && options.cache === 'reload'));
   assert.ok(w.entries.has(`${scope}src/main.js`));
   assert.ok(w.entries.has(`${scope}blackboard.css`));

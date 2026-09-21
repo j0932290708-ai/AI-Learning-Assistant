@@ -2,6 +2,7 @@ import {
   createMathSolver,
   mathMethodIds
 } from './math/index.js';
+import { guidedLesson, withLearnerFeedback } from '../services/teachingMode.js';
 import {
   createElectricalSolver,
   electricalMethodIds
@@ -106,7 +107,8 @@ export async function solveSubject(input, aiService) {
     );
   }
 
-  const solver = definition.createSolver({ aiService });
+  if (input.mode === 'guided') return guidedLesson(input, aiService);
+  const solver = definition.createSolver({ aiService: withLearnerFeedback(input, aiService) });
   const result = await solver.solve({
     subject: definition.localSubject,
     method: input.method,
@@ -115,6 +117,7 @@ export async function solveSubject(input, aiService) {
 
   return {
     ...result,
+    mode: 'direct',
     subject: input.subject
   };
 }

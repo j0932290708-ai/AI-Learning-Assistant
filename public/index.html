@@ -11,6 +11,8 @@
     <link rel="icon" href="/icons/app-icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/app-icon-192.png" />
     <title>AI 全科智慧學習助手</title>
+    <link rel="stylesheet" href="/vendor/katex/katex.min.css" />
+    <script defer src="/vendor/katex/katex.min.js"></script>
     <script type="module" src="/src/main.js"></script>
     <link rel="stylesheet" href="/blackboard.css" />
   </head>
@@ -52,6 +54,11 @@
         <h2>📝 題目</h2>
         <textarea id="question" aria-label="題目" maxlength="5000" placeholder="把題目貼在這裡，或先在下方辨識圖片……"></textarea>
         <div id="previewText" class="small"></div>
+        <fieldset class="teaching-modes"><legend>今天想怎麼學？</legend>
+          <label><input type="radio" name="teaching-mode" value="direct" checked /> 直接看答案與步驟</label>
+          <label><input type="radio" name="teaching-mode" value="guided" /> 引導式提示</label>
+        </fieldset>
+        <p id="teaching-note" class="small">看完整解法，核對答案與計算過程。</p>
         <div class="actions">
         <button class="btn primary" id="solve-button" type="button">🚀 開始解題</button>
         <button class="btn gray" id="save-button" type="button">⭐ 收藏</button>
@@ -69,6 +76,9 @@
 <div class="target-field"><label for="target-number">只解第幾題？</label><input id="target-number" type="text" inputmode="numeric" maxlength="8" placeholder="例如 174" /></div>
 <p class="small">照片有多題時請填題號，留空則辨識整張。也可以在題目欄輸入「第 174 題」再開始解題。</p>
         <img id="preview" alt="題目預覽" />
+        <button class="btn gray" id="crop-button" type="button" disabled>✂ 裁切題目</button>
+        <button class="btn gray" id="restore-photo-button" type="button" disabled>還原整張</button>
+        <p class="small">圖片只在裝置上裁切、壓縮至最長邊 1600 像素。小字請先裁切到單題，確認清楚再辨識。</p>
         <p class="small">支援 PNG、JPEG、WebP，最大 5 MB。按「辨識圖片」，或選圖後使用照片開始解題，會將圖片送至本站與 Google Gemini；本站不保存圖片。請只拍題目，辨識後先核對文字、數字與圖形條件。</p>
         <button class="btn primary" id="recognize-button" type="button" disabled>🔎 辨識圖片</button>
         <button class="btn gray" id="clear-photo-button" type="button">移除圖片</button>
@@ -94,6 +104,13 @@
         <div id="result" class="result" aria-live="polite">
           <p class="small">目前還沒有解題結果。</p>
         </div>
+        <div id="retry-tools" class="hidden">
+          <label for="answer-feedback">補充條件、指出錯誤，或寫下你的嘗試</label>
+          <textarea id="answer-feedback" maxlength="1000" placeholder="例如：圖中的電阻是 6Ω；或：我先把兩邊減 3，接下來呢？"></textarea>
+          <p class="small">只會連同題目送給 AI 重新檢查，不會建立客服回報。</p>
+          <button class="btn primary" id="retry-button" type="button">↻ 重新產生／重新檢查</button>
+          <p id="retry-status" role="status"></p>
+        </div>
       </div>
 
       <div class="card visual-card">
@@ -117,6 +134,19 @@
 <p id="camera-status" role="status" aria-live="polite"></p>
 <video id="camera-video" autoplay muted playsinline aria-label="相機預覽"></video>
 <div class="actions"><button class="btn primary" id="capture-button" type="button" disabled>● 拍下題目</button><button class="btn gray" id="system-camera-button" type="button">系統相機／相簿</button></div>
+</dialog>
+<dialog id="crop-dialog" aria-labelledby="crop-title">
+  <div class="dialog-heading"><h2 id="crop-title">框選這一道題</h2><button class="btn gray" id="cancel-crop" type="button">取消</button></div>
+  <p class="small">拖曳框選題目，保留題號、選項與完整圖形。也可調整下方百分比。</p>
+  <canvas id="crop-canvas" aria-label="拖曳框選圖片裁切範圍"></canvas>
+  <div class="crop-fields">
+    <label>左邊 %<input id="crop-x" type="number" min="0" max="99" value="0" /></label>
+    <label>上邊 %<input id="crop-y" type="number" min="0" max="99" value="0" /></label>
+    <label>寬度 %<input id="crop-w" type="number" min="1" max="100" value="100" /></label>
+    <label>高度 %<input id="crop-h" type="number" min="1" max="100" value="100" /></label>
+  </div>
+  <p id="crop-status" role="status"></p>
+  <button class="btn primary" id="apply-crop" type="button">使用裁切圖片</button>
 </dialog>
 </body>
 </html>

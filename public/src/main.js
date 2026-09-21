@@ -8,6 +8,8 @@ import {
   exportQuestionBank,
   importQuestionBank
 } from './api.js';
+import { formatStudyText, skeletonMarkup } from './richText.js';
+import { compressImage, createCropTool } from './imageTools.js';
 
 const state = {
   subject: null,
@@ -21,9 +23,17 @@ const state = {
   activeRequest: null,
   solvedRequest: null
 };
+state.mode = 'direct';
+state.originalPhoto = null;
 
 const maxQuestionLength = 5000;
 const maxImageBytes = 5 * 1024 * 1024;
+const feedbackInput = document.getElementById('answer-feedback');
+const retryTools = document.getElementById('retry-tools');
+const retryButton = document.getElementById('retry-button');
+const cropButton = document.getElementById('crop-button');
+const restorePhotoButton = document.getElementById('restore-photo-button');
+const cropTool = createCropTool((image) => useEditedPhoto(image));
 
 const subjectButtons = Array.from(
   document.querySelectorAll('.subject')
@@ -163,10 +173,13 @@ function sameRequestSelection(request) {
   return request
     && request.question === normalizeQuestion(questionInput?.value || '')
     && request.subject === state.subject
+    && (request.mode || 'direct') === state.mode
     && request.method === state.method;
 }
 
 function invalidateAnswerForInputChange() {
+  retryTools.classList.add('hidden');
+  document.getElementById('retry-status').textContent = '';
   visualResult.innerHTML = '<p class="hint">題目或選擇變更後，請重新產生圖解。</p>';
   if (state.solvedRequest && !sameRequestSelection(state.solvedRequest)) {
     state.answer = null;
@@ -207,6 +220,7 @@ function renderMethodButtons(subjectId) {
 }
 
 function chooseSubject(subjectId) {
+  feedbackInput.value = '';
   state.subject = subjectId;
 
   subjectButtons.forEach((button) => {
@@ -220,6 +234,7 @@ function chooseSubject(subjectId) {
 }
 
 function chooseMethod(methodName) {
+  feedbackInput.value = '';
   state.method = methodName;
 
   methodButtons.forEach((button) => {
@@ -231,102 +246,7 @@ function chooseMethod(methodName) {
   invalidateAnswerForInputChange();
 }
 
-/*
- * 將 AI 回傳的 Markdown 簡單整理成適合網頁閱讀的 HTML。
- * 不使用外部套件，避免再增加依賴。
- */
-function formatAIAnswer(text) {
-  if (!text) {
-    return '<p class="small">AI 沒有回傳答案。</p>';
-  }
-
-  let html = escapeHtml(String(text));
-
-  // 移除常見的 Markdown 分隔線
-  html = html.replace(/\\-{3,}/g, '');
-  html = html.replace(/^-{3,}$/gm, '');
-
-  // 標題
-  html = html.replace(
-    /^###\s+(.+)$/gm,
-    '<h3>$1</h3>'
-  );
-
-  html = html.replace(
-    /^##\s+(.+)$/gm,
-    '<h2>$1</h2>'
-  );
-
-  // 粗體
-  html = html.replace(
-    /\*\*(.+?)\*\*/g,
-    '<strong>$1</strong>'
-  );
-
-  // LaTeX display math
-  html = html.replace(
-    /\$\$([\s\S]*?)\$\$/g,
-    '<div class="ai-formula">$1</div>'
-  );
-
-  // 單行 LaTeX
-  html = html.replace(
-    /\$([^$\n]+)\$/g,
-    '<span class="ai-math">$1</span>'
-  );
-
-  // Step 1 / Step 2 / Step 3
-  html = html.replace(
-    /\bStep\s*(\d+)\s*[:：]/gi,
-    '<strong class="step-title">Step $1：</strong>'
-  );
-
-  // 最終答案
-  html = html.replace(
-    /【最終答案】/g,
-    '<div class="final-title">最終答案</div>'
-  );
-
-  // 解題方法
-  html = html.replace(
-    /【解題方法】/g,
-    '<div class="section-title">解題方法</div>'
-  );
-
-  // 解題步驟
-  html = html.replace(
-    /【解題步驟】/g,
-    '<div class="section-title">解題步驟</div>'
-  );
-
-  // 計算過程
-  html = html.replace(
-    /【計算過程】/g,
-    '<div class="section-title">計算過程</div>'
-  );
-
-  // 觀念整理
-  html = html.replace(
-    /【觀念整理】/g,
-    '<div class="section-title">觀念整理</div>'
-  );
-
-  // Markdown bullet
-  html = html.replace(
-    /^[ \t]*[\*\-]\s+(.+)$/gm,
-    '<div class="ai-bullet">• $1</div>'
-  );
-
-  // 換行
-  html = html.replace(/\n{2,}/g, '<br><br>');
-  html = html.replace(/\n/g, '<br>');
-
-  return `
-    <div class="ai-answer">
-      ${html}
-    </div>
-  `;
-}
+function formatAIAnswer(text) { return formatStudyText(text); }
 
 function formatAnswerTable(table) {
   if (!table || (Array.isArray(table) && !table.length)) return '';
@@ -342,8 +262,8 @@ function formatAnswerTable(table) {
   const cellText = (value) => value && typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
   return `<div class="section-title">表格</div><div style="overflow-x:auto;">
     <table style="border-collapse:collapse;width:100%;">
-      <thead><tr>${columns.map((column) => `<th scope="col" style="border:1px solid #cbd5e1;padding:8px;">${escapeHtml(cellText(column))}</th>`).join('')}</tr></thead>
-      <tbody>${rows.map((row) => `<tr>${columns.map((column, index) => `<td style="border:1px solid #cbd5e1;padding:8px;text-align:center;">${escapeHtml(cellText(row[objectRows ? column : index]))}</td>`).join('')}</tr>`).join('')}</tbody>
+      <thead><tr>${columns.map((column) => `<th scope="col" style="border:1px solid #cbd5e1;padding:8px;">${formatStudyText(cellText(column))}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map((row) => `<tr>${columns.map((column, index) => `<td style="border:1px solid #cbd5e1;padding:8px;text-align:center;">${formatStudyText(cellText(row[objectRows ? column : index]))}</td>`).join('')}</tr>`).join('')}</tbody>
     </table></div>`;
 }
 
@@ -351,7 +271,7 @@ function formatStructuredAnswer(data) {
   const steps = Array.isArray(data.steps)
     ? data.steps
       .map((step, index) => `
-        <li><strong>Step ${index + 1}</strong> ${escapeHtml(step)}</li>
+        <li><strong>${data.mode === 'guided' ? '提示' : 'Step'} ${index + 1}</strong> ${formatStudyText(step)}</li>
       `)
       .join('')
     : '';
@@ -359,10 +279,10 @@ function formatStructuredAnswer(data) {
   return `
     <div class="ai-answer">
       ${steps ? `
-        <div class="section-title">解題步驟</div>
+        <div class="section-title">${data.mode === 'guided' ? '先想這幾件事' : '解題步驟'}</div>
         <ol>${steps}</ol>
       ` : ''}
-      <div class="final-title">最終答案</div>
+      <div class="final-title">${data.mode === 'guided' ? '換你試試看' : '最終答案'}</div>
       ${formatAIAnswer(data.answer)}
       ${formatAnswerTable(data.table)}
       ${typeof data.code === 'string' ? `<pre style="overflow:auto;white-space:pre;"><code>${escapeHtml(data.code)}</code></pre>` : ''}
@@ -376,6 +296,7 @@ function formatStructuredAnswer(data) {
 }
 
 async function solve() {
+  if (state.activeRequest || state.recognitionRequest) return;
   const question = normalizeQuestion(
     questionInput?.value || ''
   );
@@ -417,23 +338,25 @@ async function solve() {
   }
 
   state.question = question;
+  const previousAnswer = sameRequestSelection(state.solvedRequest) ? state.solvedRequest.responseContext : '';
   state.answer = null;
   state.solvedRequest = null;
   const request = Object.freeze({
     requestId: createRequestId(),
     controller: new AbortController(),
     question,
+    mode: state.mode,
+    feedback: feedbackInput.value.trim(),
+    previousAnswer: previousAnswer || '',
     subject: state.subject,
     method: state.method
   });
   state.activeRequest = request;
 
-  resultBox.innerHTML = `
-    <div class="answer">
-      <span class="chalk-spinner" aria-hidden="true"></span><strong>${isPublicDemo ? '🧪 正在載入示範...' : '🤖 AI 正在解題...'}</strong>
-      <p>正在整理答案，繁忙時可能需要約一分鐘。</p>
-    </div>
-  `;
+  resultBox.innerHTML = skeletonMarkup(state.mode === 'guided' ? '正在整理提示，先別急著看答案…' : 'AI 正在整理答案與步驟…');
+  resultBox.setAttribute('aria-busy', 'true');
+  retryTools.classList.add('hidden');
+  retryButton.disabled = true;
 
   solveButton.disabled = true;
   solveButton.textContent = isPublicDemo
@@ -449,9 +372,12 @@ async function solve() {
       data = await requestAI('/api/solve', {
           question: request.question,
           subject: request.subject,
+          mode: request.mode,
+          feedback: request.feedback,
+          previousAnswer: request.previousAnswer,
           method: request.method
         }, { signal: request.controller.signal, onStatus: (message) => {
-          if (state.activeRequest?.requestId === request.requestId) resultBox.innerHTML = `<div class="answer loading-note"><span class="chalk-spinner" aria-hidden="true"></span><strong>${escapeHtml(message)}</strong><p class="small">題目已保留，請不用重複按按鈕。</p></div>`;
+          if (state.activeRequest?.requestId === request.requestId) resultBox.innerHTML = skeletonMarkup(message);
         } });
     }
 
@@ -463,6 +389,7 @@ async function solve() {
     state.solvedRequest = Object.freeze({
       ...request,
       actualMethod: data.method || request.method,
+      responseContext: [...(data.steps || []), data.answer || ''].join('\n').slice(0, 4000),
       answer: state.answer
     });
 
@@ -477,9 +404,13 @@ async function solve() {
 
       ${formatStructuredAnswer(data)}
     `;
+    retryTools.classList.remove('hidden');
+    retryButton.textContent = request.mode === 'guided' ? '送出我的嘗試／再給提示' : '↻ 重新產生／重新檢查';
+    document.getElementById('retry-status').textContent = request.feedback ? '已依補充內容重新檢查，請核對新結果。' : '';
   } catch (error) {
     if (state.activeRequest?.requestId !== request.requestId) return;
     console.error('Solve error:', error);
+    retryTools.classList.remove('hidden');
 
     resultBox.innerHTML = `
       <div class="answer" style="border-left-color:#ef4444;background:#fef2f2;">
@@ -496,6 +427,8 @@ async function solve() {
     }
     solveButton.disabled = false;
     solveButton.textContent = defaultSolveButtonText;
+    retryButton.disabled = false;
+    if (!state.activeRequest) resultBox.setAttribute('aria-busy', 'false');
   }
 }
 
@@ -517,7 +450,7 @@ function saveQuestion() {
     const entries = saveQuestionToBank(
       matchedResult?.question || cleanText,
       subjectLabels[matchedResult?.subject || state.subject] || state.subject,
-      methodLabels[matchedResult?.actualMethod || state.method] || matchedResult?.actualMethod || state.method,
+      (methodLabels[matchedResult?.actualMethod || state.method] || matchedResult?.actualMethod || state.method) + (matchedResult?.mode === 'guided' ? '（引導提示）' : ''),
       matchedResult?.answer || ''
     );
     renderBank(entries);
@@ -563,7 +496,7 @@ function renderBank(entries) {
           <p>
             ${escapeHtml(entry.question || '')}
           </p>
-          ${entry.answer ? `<details><summary>查看已收藏答案</summary><p style="white-space:pre-wrap;">${escapeHtml(entry.answer)}</p></details>` : ''}
+          ${entry.answer ? `<details><summary>查看已收藏答案</summary><div class="ai-answer">${formatStudyText(entry.answer)}</div></details>` : ''}
         </div>
       `
     )
@@ -571,10 +504,18 @@ function renderBank(entries) {
 }
 
 function resetPhoto() {
+  cropTool.close();
+  if (state.recognitionRequest) {
+    resultBox.setAttribute('aria-busy', 'false');
+    resultBox.innerHTML = '<p class="hint">圖片已變更，請重新辨識。</p>';
+  }
   state.recognitionRequest?.controller.abort();
   state.recognitionRequest = null;
   state.image = null;
   state.imageData = null;
+  state.originalPhoto = null;
+  cropButton.disabled = true;
+  restorePhotoButton.disabled = true;
   recognizeButton.disabled = true;
   recognizeButton.textContent = '🔎 辨識圖片';
   recognitionReview.classList.add('hidden');
@@ -591,6 +532,10 @@ function clearPhoto() {
 }
 
 function changeTargetNumber({ syncQuestion = true } = {}) {
+  if (state.recognitionRequest) {
+    resultBox.setAttribute('aria-busy', 'false');
+    resultBox.innerHTML = '<p class="hint">題號已變更，請重新辨識。</p>';
+  }
   state.recognitionRequest?.controller.abort();
   state.recognitionRequest = null;
   recognizedText.value = '';
@@ -608,6 +553,7 @@ function changeTargetNumber({ syncQuestion = true } = {}) {
 }
 
 async function recognizePhoto() {
+  if (state.activeRequest || state.recognitionRequest) return;
   if (isPublicDemo) {
     photoStatus.textContent = '圖片辨識請使用正式 AI 解題版。';
     return;
@@ -630,10 +576,14 @@ async function recognizePhoto() {
   recognitionReview.classList.add('hidden');
   recognizedText.value = '';
   photoStatus.textContent = '正在辨識圖片，繁忙時可能需要約一分鐘…';
+  state.answer = null; state.solvedRequest = null;
+  retryTools.classList.add('hidden');
+  resultBox.innerHTML = skeletonMarkup('正在讀取照片中的題目…');
+  resultBox.setAttribute('aria-busy', 'true');
   try {
     const data = await requestAI('/api/recognize', { ...state.imageData, ...(target !== null ? { questionNumber: target } : {}) }, {
       signal: request.controller.signal,
-      onStatus: (message) => { if (state.recognitionRequest === request) photoStatus.textContent = message; }
+      onStatus: (message) => { if (state.recognitionRequest === request) { photoStatus.textContent = message; resultBox.innerHTML = skeletonMarkup(message); } }
     });
     if (state.recognitionRequest !== request) return;
     if (typeof data.text !== 'string' || data.text.length > maxQuestionLength) throw new Error('辨識結果無法使用，請重試。');
@@ -643,16 +593,19 @@ async function recognizePhoto() {
       ? `${target !== null ? `第 ${target} 題` : '圖片'}辨識完成，請核對並修改下方文字，再按「使用這段文字作為題目」。${warnings}`
       : `未辨識到清楚的題目，請重新拍照或手動輸入。${warnings}`;
     if (data.text) recognitionReview.classList.remove('hidden');
+    resultBox.innerHTML = `<p class="hint">${data.text ? '辨識完成。請先核對照片下方的文字，套用後再解題。' : '圖片尚未辨識清楚，請裁切到單題或重新拍照。'}</p>`;
   } catch (error) {
     if (state.recognitionRequest !== request) return;
     photoStatus.textContent = error.name === 'AbortError'
       ? '辨識等候過久，請稍後重試。'
       : error.message;
+    resultBox.innerHTML = `<p class="hint">${escapeHtml(photoStatus.textContent)}</p>`;
   } finally {
     if (state.recognitionRequest === request) {
       state.recognitionRequest = null;
       recognizeButton.disabled = !state.imageData;
       recognizeButton.textContent = '🔎 辨識圖片';
+      resultBox.setAttribute('aria-busy', 'false');
     }
   }
 }
@@ -788,16 +741,19 @@ function handlePhotoUpload(event) {
       photoPreview.onload = () => {
         if (state.image !== file) return;
         const pixels = photoPreview.naturalWidth * photoPreview.naturalHeight;
-        if (pixels > 20_000_000) {
+        if (!pixels || pixels > 20_000_000 || Math.max(photoPreview.naturalWidth, photoPreview.naturalHeight) > 10000) {
           photoPreview.removeAttribute('src');
           photoPreview.style.display = 'none';
           photoStatus.textContent = '圖片解析度過大，請使用較小的圖片。';
           state.image = null;
           return;
         }
-        state.imageData = { mimeType: file.type, data: String(reader.result).split(',')[1] };
-        recognizeButton.disabled = isPublicDemo;
-        photoStatus.textContent = `📷 已選擇圖片：${file.name}。按「辨識圖片」開始。`;
+        try {
+          const compressed = compressImage(photoPreview);
+          state.originalPhoto = String(reader.result);
+          useEditedPhoto(compressed, false);
+          photoStatus.textContent = `📷 已選擇圖片：${file.name}。已在裝置壓縮至 ${compressed.width} × ${compressed.height}，可先裁切到單題。`;
+        } catch (error) { resetPhoto(); photoStatus.textContent = error.message; }
       };
       photoPreview.onerror = () => {
         if (state.image !== file) return;
@@ -827,7 +783,55 @@ function handlePhotoUpload(event) {
   reader.readAsDataURL(file);
 }
 
+function useEditedPhoto(image, edited = true) {
+  state.recognitionRequest?.controller.abort();
+  state.recognitionRequest = null;
+  resultBox.setAttribute('aria-busy', 'false');
+  state.image = { name: edited ? '裁切題目.jpg' : '壓縮題目.jpg' };
+  state.imageData = { mimeType: image.mimeType, data: image.data };
+  recognizedText.value = '';
+  recognitionReview.classList.add('hidden');
+  if (state.appliedRecognition && normalizeQuestion(questionInput.value) === state.appliedRecognition) {
+    questionInput.value = targetNumberInput.value ? `第 ${targetNumberInput.value} 題` : '';
+    state.appliedRecognition = null;
+    handleQuestionInput();
+  }
+  state.activeRequest?.controller.abort(); state.activeRequest = null;
+  state.answer = null; state.solvedRequest = null;
+  retryTools.classList.add('hidden');
+  resultBox.innerHTML = '<p class="hint">圖片已準備好，請辨識並核對題目。</p>';
+  photoPreview.onload = null;
+  photoPreview.src = image.url; photoPreview.style.display = 'block';
+  recognizeButton.disabled = isPublicDemo; recognizeButton.textContent = '🔎 辨識圖片';
+  cropButton.disabled = false; restorePhotoButton.disabled = !edited;
+  photoStatus.textContent = `已套用圖片（${image.width} × ${image.height}），請重新辨識；尚未上傳。`;
+}
+
+function restorePhoto() {
+  const original = state.originalPhoto;
+  if (!original) return;
+  const image = new Image();
+  image.onload = () => {
+    if (state.originalPhoto !== original) return;
+    try { useEditedPhoto(compressImage(image), false); }
+    catch (error) { photoStatus.textContent = error.message; }
+  };
+  image.onerror = () => { if (state.originalPhoto === original) photoStatus.textContent = '無法還原圖片，請重新選圖。'; };
+  image.src = original;
+}
+
+function changeTeachingMode(mode) {
+  state.mode = mode === 'guided' ? 'guided' : 'direct';
+  feedbackInput.value = '';
+  invalidateAnswerForInputChange();
+  if (!state.activeRequest) resultBox.setAttribute('aria-busy', 'false');
+  document.getElementById('teaching-note').textContent = state.mode === 'guided'
+    ? '先拿提示、自己試一步；在結果下方寫下你的嘗試，再繼續。'
+    : '看完整解法，核對答案與計算過程。';
+}
+
 function handleQuestionInput() {
+  if (normalizeQuestion(questionInput.value) !== state.question) feedbackInput.value = '';
   const target = questionNumber(questionInput.value);
   if (target !== null) targetNumberInput.value = target;
   if (state.recognitionRequest && questionNumber(questionInput.value) !== questionNumber(state.recognitionRequest.initialQuestion)) {
@@ -935,6 +939,10 @@ if (photoInput) {
 }
 
 cameraInput?.addEventListener('change', handlePhotoUpload);
+cropButton.addEventListener('click', () => { if (state.originalPhoto) cropTool.open(state.originalPhoto); });
+restorePhotoButton.addEventListener('click', restorePhoto);
+retryButton.addEventListener('click', solve);
+document.querySelectorAll('input[name="teaching-mode"]').forEach((input) => input.addEventListener('change', () => { if (input.checked) changeTeachingMode(input.value); }));
 document.getElementById('open-camera-button')?.addEventListener('click', openCamera);
 document.getElementById('close-camera-button')?.addEventListener('click', closeCamera);
 captureButton?.addEventListener('click', capturePhoto);

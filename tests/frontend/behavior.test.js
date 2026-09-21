@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { test } from 'node:test';
 import { escapeHtml, normalizeQuestion, questionNumber } from '../../public/src/api.js';
+import { formatStudyText, skeletonMarkup } from '../../public/src/richText.js';
+import { compressImage } from '../../public/src/imageTools.js';
 
 // Run the real UI handlers with only the DOM surface they use.
 function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
@@ -21,10 +23,13 @@ function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
     return elements.get(id);
   }
   const context = vm.createContext({
-    document: { body: { dataset: {} }, getElementById: element, querySelectorAll: () => [] },
+    document: { body: { dataset: {} }, getElementById: element, querySelectorAll: () => [],
+      createElement: () => ({ getContext: () => ({ drawImage() {}, fillRect() {} }), toDataURL: () => 'data:image/jpeg;base64,aGVsbG8=' }) },
     navigator: {}, addEventListener() {}, console: { error() {} },
     setTimeout, clearTimeout, AbortController, fetch: fetchImpl,
     escapeHtml, normalizeQuestion, questionNumber, loadQuestionBank: () => [],
+    formatStudyText, skeletonMarkup, createCropTool: () => ({ open() {}, close() {} }),
+    compressImage: (image, rect) => compressImage(image, rect, () => context.document.createElement('canvas')),
     requestAI: async (url, payload, options) => {
       const response = await fetchImpl(url, { body: JSON.stringify(payload), signal: options.signal });
       const data = await response.json();
@@ -34,7 +39,7 @@ function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
     saveQuestionToBank: (...args) => { saved.push(args); return []; }
   });
   const source = readFileSync(new URL('../../public/src/main.js', import.meta.url), 'utf8')
-    .replace(/^import[\s\S]*?from '\.\/api.js';/, '');
+    .replace(/^import[\s\S]*?from '[^']+';\r?\n/gm, '');
   vm.runInContext(source, context);
   return { context, element, saved, run: (code) => vm.runInContext(code, context) };
 }
@@ -50,6 +55,45 @@ test('AI truth table displays every input and output row without executing HTML'
   for (const header of ['A', 'B', 'Y']) assert.ok(html.includes(`>${header}</th>`));
   assert.match(html, /&lt;script&gt;/);
   assert.doesNotMatch(html, /<script>/);
+});
+
+test('pending solve shows skeleton, ignores duplicate clicks and switching teaching mode ignores old replies', async () => {
+  let finish, calls = 0;
+  const ui = loadUi(() => { calls++; return new Promise(resolve => { finish = resolve; }); });
+  ui.element('question').value = '2x+3=11';
+  const pending = ui.run('solve()');
+  assert.match(ui.element('result').innerHTML, /class="skeleton"/);
+  await ui.run('solve()'); assert.equal(calls, 1);
+  ui.run("changeTeachingMode('guided')");
+  finish({ ok: true, json: async () => ({ success: true, answer: 'old final answer', steps: ['old'] }) });
+  await pending;
+  assert.doesNotMatch(ui.element('result').innerHTML, /old final answer|class="skeleton"/);
+});
+
+test('guided retry sends the learner attempt and previous hints without showing a final answer label', async () => {
+  const calls = [];
+  const ui = loadUi(async (url, options) => { calls.push(JSON.parse(options.body)); return { ok: true, json: async () => ({ success: true, mode: 'guided', steps: ['先減 3'], answer: '下一步呢？' }) }; });
+  ui.element('question').value = '2x+3=11'; ui.run("changeTeachingMode('guided')");
+  await ui.run('solve()');
+  assert.doesNotMatch(ui.element('result').innerHTML, /最終答案/);
+  ui.element('answer-feedback').value = '我得到 2x=8';
+  await ui.run('solve()');
+  assert.equal(calls[1].mode, 'guided'); assert.equal(calls[1].feedback, '我得到 2x=8');
+  assert.match(calls[1].previousAnswer, /先減 3/);
+  ui.run('saveQuestion()'); assert.match(ui.saved[0][2], /引導提示/);
+});
+
+test('cropping cancels an in-flight recognition and prevents stale OCR from being applied', async () => {
+  let finish, signal;
+  const ui = loadUi((url, options) => { signal = options.signal; return new Promise(resolve => { finish = resolve; }); });
+  ui.run("state.imageData={mimeType:'image/png',data:'aGVsbG8='}; state.originalPhoto='original'");
+  const pending = ui.run('recognizePhoto()');
+  assert.match(ui.element('result').innerHTML, /skeleton/);
+  ui.run("useEditedPhoto({mimeType:'image/jpeg',data:'cropped',url:'data:image/jpeg;base64,cropped',width:800,height:400})");
+  finish({ ok: true, json: async () => ({ success: true, text: 'wrong old image' }) });
+  await pending;
+  assert.equal(signal.aborted, true); assert.equal(ui.element('recognized-text').value, '');
+  assert.equal(ui.run('state.imageData.data'), 'cropped');
 });
 
 test('a question-number-only request uses the photo and never calls text solve', async () => {

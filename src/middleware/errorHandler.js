@@ -19,6 +19,7 @@ export function errorHandler(err, req, res, next) {
   const code = parserError?.code || err.code
     || (statusCode === 503 ? 'AI_UPSTREAM_UNAVAILABLE' : 'INTERNAL_ERROR');
   const safeServerMessages = {
+    GUIDANCE_INVALID: '引導內容格式不完整，請再試一次。',
     AI_UPSTREAM_UNAVAILABLE: 'AI 服務目前忙碌，請稍後再試。',
     IMAGE_RECOGNITION_INVALID: '圖片辨識結果無法讀取，請重試或改用手動輸入。',
     AI_SERVICE_UNAVAILABLE: 'AI service is not configured',
