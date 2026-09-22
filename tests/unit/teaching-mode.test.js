@@ -11,6 +11,9 @@ test('guided mode uses learner attempts and only returns hints and a next-step q
   assert.equal(result.mode, 'guided'); assert.equal(result.answer, '2x 現在等於多少？');
   assert.match(request.contents, /我想先移項/); assert.match(request.contents, /之前的提示/);
   assert.match(request.contents, /Do not reveal the final answer/);
+  assert.deepEqual(request.config.responseJsonSchema.required, ['hints', 'guidingQuestion']);
+  assert.equal(request.config.responseJsonSchema.additionalProperties, false);
+  assert.equal(request.config.responseJsonSchema.properties.hints.maxItems, 3);
 });
 
 test('guided output with a full-answer field is rejected, unsupported modes and excessive feedback fail validation', async () => {
@@ -29,13 +32,14 @@ test('direct retry adds the correction while retaining the original solver schem
 });
 
 test('guided HTTP requests use the same cancellable AI service and serve local formula assets', async () => {
-  let signal;
-  const aiService = { models: { generateContent: async (r) => { signal = r.config.abortSignal; return { text: '{"hints":["移項"],"guidingQuestion":"接著呢？"}' }; } } };
+  let signal, responseSchema;
+  const aiService = { models: { generateContent: async (r) => { signal = r.config.abortSignal; responseSchema = r.config.responseJsonSchema; return { text: '{"hints":["移項"],"guidingQuestion":"接著呢？"}' }; } } };
   const server = createApp({ services: { aiService }, logger: { log() {}, error() {} } }).listen(0);
   try {
     const base = `http://127.0.0.1:${server.address().port}`;
     const response = await fetch(base + '/api/solve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject: 'math', method: 'auto', question: '2x+3=11', mode: 'guided' }) });
     assert.equal(response.status, 200); assert.equal((await response.json()).mode, 'guided'); assert.equal(signal.aborted, false);
+    assert.deepEqual(responseSchema.required, ['hints', 'guidingQuestion']);
     const asset = await fetch(base + '/vendor/katex/katex.min.js'); assert.equal(asset.status, 200); assert.match(asset.headers.get('content-type'), /javascript/);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
