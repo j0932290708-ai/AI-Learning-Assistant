@@ -18,7 +18,9 @@ import { tutorPolicy } from './services/tutorPolicy.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+// Keep the built-in model on the current stable Gemini Flash release. Render
+// environment variables can still pin a different model when needed.
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL === 'none'
   ? null : (process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash-lite');
 
@@ -191,3 +193,4 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
 
   return app;
 }
+
