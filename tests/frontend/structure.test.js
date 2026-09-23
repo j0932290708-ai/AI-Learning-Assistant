@@ -99,7 +99,7 @@ describe('Frontend structure requirements', () => {
 
     assert.match(html, /id="question"[^>]*maxlength="5000"/s);
     assert.match(mainJs, /maxImageBytes\s*=\s*5 \* 1024 \* 1024/);
-    assert.match(mainJs, /setAttribute\('aria-pressed', String\(selected\)\)/);
+    assert.match(html, /name="teaching-mode"/);
   });
 
   test('service worker does not cache API or cross-origin responses', () => {
@@ -125,7 +125,7 @@ describe('Frontend structure requirements', () => {
       'programming',
       'microprocessor'
     ]) {
-      assert.match(html, new RegExp(`data-subject="${subject}"`));
+      assert.doesNotMatch(html, /data-subject=|data-method=|id="methodBox"/);
       assert.match(mainJs, new RegExp(`${subject}:`));
     }
 

@@ -44,6 +44,22 @@ function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
   return { context, element, saved, run: (code) => vm.runInContext(code, context) };
 }
 
+test('automatic subject is displayed and saved without changing the next request or losing retry context', async () => {
+  const calls = [];
+  const ui = loadUi(async (url, options) => {
+    calls.push(JSON.parse(options.body));
+    return { ok: true, json: async () => ({ success: true, subject: 'english', method: 'grammar', steps: ['第三人稱單數'], answer: 'She goes.' }) };
+  });
+  ui.element('question').value = 'Correct: She go.';
+  await ui.run('solve()');
+  assert.equal(calls[0].subject, 'auto'); assert.equal(calls[0].method, 'auto');
+  assert.match(ui.element('result').innerHTML, /英文/);
+  ui.run('saveQuestion()'); assert.equal(ui.saved[0][1], '英文');
+  ui.element('answer-feedback').value = '再解釋一次';
+  await ui.run('solve()');
+  assert.match(calls[1].previousAnswer, /She goes/); assert.equal(calls[1].subject, 'auto');
+});
+
 test('AI truth table displays every input and output row without executing HTML', () => {
   const ui = loadUi();
   ui.context.answer = { answer: 'AND', table: { inputs: ['A', 'B'], rows: [
@@ -297,6 +313,25 @@ test('saving an empty question shows inline feedback without a blocking dialog',
   ui.run('saveQuestion()');
   assert.match(ui.element('result').innerHTML, /請先輸入題目再收藏/);
   assert.equal(ui.saved.length, 0);
+});
+
+test('pasted images use the upload validation while ordinary text paste remains untouched', () => {
+  const ui=loadUi(); let read=0,prevented=0;
+  ui.context.FileReader=class {readAsDataURL(){read++;}};
+  ui.context.pasteEvent={clipboardData:{files:[{name:'clip.png',type:'image/png',size:20}]},preventDefault(){prevented++;}};
+  ui.run('handleImagePaste(pasteEvent)'); assert.equal(read,1); assert.equal(prevented,1);
+  ui.context.pasteEvent={clipboardData:{files:[],items:[]},preventDefault(){prevented++;}};
+  ui.run('handleImagePaste(pasteEvent)'); assert.equal(prevented,1);
+  ui.context.pasteEvent={clipboardData:{files:[{name:'bad.svg',type:'image/svg+xml',size:20}]},preventDefault(){prevented++;}};
+  ui.run('handleImagePaste(pasteEvent)'); assert.equal(read,1); assert.match(ui.element('photoStatus').textContent,/只支援/);
+});
+
+test('personal key settings clear the password field and never enter saved questions', () => {
+  const ui=loadUi(); ui.element('personal-api-key').value='test_only_12345678901234567890';
+  ui.run('applyAiSettings()'); assert.equal(ui.element('personal-api-key').value,'');
+  assert.match(ui.element('ai-settings-status').textContent,/尚未向 Google 驗證/);
+  ui.element('question').value='題目'; ui.run('saveQuestion()'); assert.doesNotMatch(JSON.stringify(ui.saved),/test_only/);
+  ui.run('applyAiSettings(true)'); assert.equal(ui.run('personalApiKey'),'');
 });
 
 test('photo selection clears old preview and ignores a stale file read', () => {

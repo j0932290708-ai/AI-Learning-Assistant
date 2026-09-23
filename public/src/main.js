@@ -25,6 +25,22 @@ const state = {
 };
 state.mode = 'direct';
 state.originalPhoto = null;
+// Session-only credential. Never place it in state snapshots, prompts or saved questions.
+let personalApiKey = '';
+function applyAiSettings(clear = false) {
+  const input = document.getElementById('personal-api-key');
+  const status = document.getElementById('ai-settings-status');
+  const key = clear ? '' : input.value.trim();
+  if (key && !/^[A-Za-z0-9_-]{20,256}$/.test(key)) {
+    status.textContent = 'API Key 格式不正確，尚未變更設定。'; return;
+  }
+  personalApiKey = key;
+  input.value = '';
+  status.textContent = key ? '本次使用你的 Gemini 金鑰；重新整理後清除。尚未向 Google 驗證，解題或辨識時才會使用。' : '目前使用網站預設。';
+}
+document.getElementById('apply-ai-settings').addEventListener('click', () => applyAiSettings());
+document.getElementById('clear-ai-settings').addEventListener('click', () => applyAiSettings(true));
+addEventListener('pagehide', () => applyAiSettings(true));
 
 const maxQuestionLength = 5000;
 const maxImageBytes = 5 * 1024 * 1024;
@@ -35,11 +51,6 @@ const cropButton = document.getElementById('crop-button');
 const restorePhotoButton = document.getElementById('restore-photo-button');
 const cropTool = createCropTool((image) => useEditedPhoto(image));
 
-const subjectButtons = Array.from(
-  document.querySelectorAll('.subject')
-);
-
-let methodButtons = [];
 
 const questionInput = document.getElementById('question');
 const resultBox = document.getElementById('result');
@@ -67,7 +78,6 @@ const solveButton = document.getElementById('solve-button');
 const saveButton = document.getElementById('save-button');
 const aiDrawButton = document.getElementById('ai-draw-button');
 const visualResult = document.getElementById('visual-result');
-const methodGrid = document.getElementById('method-grid');
 const installButton = document.getElementById('install-button');
 const installStatus = document.getElementById('install-status');
 const modeBanner = document.getElementById('mode-banner');
@@ -75,6 +85,8 @@ const modeBanner = document.getElementById('mode-banner');
 let installPrompt = null;
 
 const subjectLabels = {
+  auto: '待判斷',
+  general: '綜合學習',
   math: '數學',
   chinese: '國文',
   english: '英文',
@@ -129,16 +141,6 @@ const methodLabels = {
   sentence: '句子修正'
 };
 
-const subjectMethods = {
-  math: ['auto', 'algebra', 'calculus', 'combinatorics', 'arithmetic'],
-  basic_electricity: ['auto', 'kcl', 'kvl', 'node_voltage', 'mesh_current', 'series_parallel'],
-  electronics: ['auto', 'diode', 'bjt', 'fet', 'op_amp', 'amplifier'],
-  digital_logic: ['auto', 'boolean', 'logic_gate', 'truth_table', 'karnaugh_map', 'flip_flop'],
-  programming: ['auto', 'c', 'cpp', 'python', 'javascript', 'debugging', 'algorithm'],
-  microprocessor: ['auto', 'instruction', 'register', 'memory', 'assembly', 'io', 'architecture'],
-  chinese: ['auto', 'reading', 'classical_chinese', 'vocabulary', 'idiom', 'literature', 'grammar'],
-  english: ['auto', 'vocabulary', 'grammar', 'reading', 'translation', 'cloze', 'sentence']
-};
 
 const appMode = document.body.dataset.appMode || 'api';
 const isPublicDemo = appMode === 'demo';
@@ -198,51 +200,16 @@ function invalidateAnswerForInputChange() {
   }
 }
 
-function renderMethodButtons(subjectId) {
-  const methods = subjectMethods[subjectId] || ['auto'];
-
-  methodGrid.innerHTML = methods
-    .map((method) => `
-      <button class="method" data-method="${method}" type="button">
-        ${methodLabels[method] || method}
-      </button>
-    `)
-    .join('');
-
-  methodButtons = Array.from(methodGrid.querySelectorAll('.method'));
-  methodButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-      chooseMethod(button.dataset.method);
-    });
-  });
-
-  chooseMethod('auto');
-}
-
 function chooseSubject(subjectId) {
   feedbackInput.value = '';
   state.subject = subjectId;
-
-  subjectButtons.forEach((button) => {
-    const selected = button.dataset.subject === subjectId;
-    button.classList.toggle('active', selected);
-    button.setAttribute('aria-pressed', String(selected));
-  });
-
-  renderMethodButtons(subjectId);
+  state.method = 'auto';
   invalidateAnswerForInputChange();
 }
 
 function chooseMethod(methodName) {
   feedbackInput.value = '';
   state.method = methodName;
-
-  methodButtons.forEach((button) => {
-    const selected = button.dataset.method === methodName;
-    button.classList.toggle('active', selected);
-    button.setAttribute('aria-pressed', String(selected));
-  });
-
   invalidateAnswerForInputChange();
 }
 
@@ -376,7 +343,7 @@ async function solve() {
           feedback: request.feedback,
           previousAnswer: request.previousAnswer,
           method: request.method
-        }, { signal: request.controller.signal, onStatus: (message) => {
+        }, { apiKey: personalApiKey, signal: request.controller.signal, onStatus: (message) => {
           if (state.activeRequest?.requestId === request.requestId) resultBox.innerHTML = skeletonMarkup(message);
         } });
     }
@@ -388,6 +355,7 @@ async function solve() {
     state.answer = data.answer || '';
     state.solvedRequest = Object.freeze({
       ...request,
+      actualSubject: data.subject || request.subject,
       actualMethod: data.method || request.method,
       responseContext: [...(data.steps || []), data.answer || ''].join('\n').slice(0, 4000),
       answer: state.answer
@@ -396,7 +364,7 @@ async function solve() {
     resultBox.innerHTML = `
       <div class="answer">
         <strong>📚 科目：</strong>
-        ${escapeHtml(subjectLabels[request.subject] || request.subject)}
+        ${escapeHtml(subjectLabels[data.subject || request.subject] || data.subject || request.subject)}
         <br>
         <strong>🧠 解題方法：</strong>
         ${escapeHtml(methodLabels[data.method || request.method] || data.method || request.method)}
@@ -449,7 +417,7 @@ function saveQuestion() {
   try {
     const entries = saveQuestionToBank(
       matchedResult?.question || cleanText,
-      subjectLabels[matchedResult?.subject || state.subject] || state.subject,
+      subjectLabels[matchedResult?.actualSubject || state.subject] || state.subject,
       (methodLabels[matchedResult?.actualMethod || state.method] || matchedResult?.actualMethod || state.method) + (matchedResult?.mode === 'guided' ? '（引導提示）' : ''),
       matchedResult?.answer || ''
     );
@@ -582,6 +550,7 @@ async function recognizePhoto() {
   resultBox.setAttribute('aria-busy', 'true');
   try {
     const data = await requestAI('/api/recognize', { ...state.imageData, ...(target !== null ? { questionNumber: target } : {}) }, {
+      apiKey: personalApiKey,
       signal: request.controller.signal,
       onStatus: (message) => { if (state.recognitionRequest === request) { photoStatus.textContent = message; resultBox.innerHTML = skeletonMarkup(message); } }
     });
@@ -700,9 +669,21 @@ function applyRecognition() {
   questionInput.value = text;
   handleQuestionInput();
   state.appliedRecognition = text;
-  photoStatus.textContent = '已填入題目。請選擇科目與方法，再按「開始 AI 解題」。';
+  photoStatus.textContent = '已填入題目。按「開始 AI 解題」，AI 會自動判斷科目與解法。';
   questionInput.focus();
 }
+
+function handleImagePaste(event) {
+  const clipboard = event.clipboardData;
+  const files = Array.from(clipboard?.files || []);
+  const file = files.find(file => file.type.startsWith('image/'))
+    || Array.from(clipboard?.items || []).find(item => item.kind === 'file' && item.type.startsWith('image/'))?.getAsFile();
+  if (!file) return; // Keep normal text paste behavior.
+  event.preventDefault();
+  handlePhotoUpload({ target: { files: [file], value: '' } });
+  photoStatus.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+}
+questionInput.addEventListener('paste', handleImagePaste);
 
 function handlePhotoUpload(event) {
   const file = event.target.files?.[0];
@@ -906,11 +887,6 @@ if (isPublicDemo && modeBanner) {
   modeBanner.textContent = '公開互動 Demo：解題答案是固定示範，圖解由可驗證規則產生，不是 AI 模型輸出。';
 }
 
-subjectButtons.forEach((button) => {
-  button.addEventListener('click', () => {
-    chooseSubject(button.dataset.subject);
-  });
-});
 
 if (solveButton) {
   solveButton.addEventListener('click', solve);
@@ -1180,8 +1156,16 @@ function generateVisual() {
     method: state.method
   };
 
+  if (sameRequestSelection(state.solvedRequest)) {
+    request.subject = state.solvedRequest.actualSubject || request.subject;
+    request.method = state.solvedRequest.actualMethod || request.method;
+  }
   let visual;
-  if (request.subject === 'basic_electricity' || request.subject === 'electronics') {
+  if (request.subject === 'auto') {
+    visual = createCircuitVisual(request.question);
+    if (visual.error) visual = createMathVisual(request.question);
+    if (visual.error) visual = { error: '請先開始解題，讓 AI 判斷科目；若題型不支援圖解，可直接閱讀解題步驟。' };
+  } else if (request.subject === 'basic_electricity' || request.subject === 'electronics') {
     visual = createCircuitVisual(request.question);
   } else if (request.subject === 'math') {
     visual = createMathVisual(request.question);
@@ -1208,8 +1192,8 @@ function generateVisual() {
   `;
 }
 
-// 預設選擇數學
-chooseSubject('math');
+// 科目與方法由 AI 依題目自動判斷。
+chooseSubject('auto');
 
 // 預設使用 AI 自動選擇
 chooseMethod('auto');

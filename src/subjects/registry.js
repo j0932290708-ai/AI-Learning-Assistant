@@ -3,6 +3,8 @@ import {
   mathMethodIds
 } from './math/index.js';
 import { guidedLesson, withLearnerFeedback } from '../services/teachingMode.js';
+import { automaticLesson } from '../services/automaticLesson.js';
+import { exactArithmetic } from '../services/arithmetic.js';
 import {
   createElectricalSolver,
   electricalMethodIds
@@ -91,6 +93,12 @@ export function getSubjectMethods(subject) {
 }
 
 export async function solveSubject(input, aiService) {
+  const arithmetic = exactArithmetic(input);
+  if (arithmetic) return arithmetic;
+  if (input.subject === 'auto') {
+    if (input.method !== 'auto') throw new SubjectRegistryError('METHOD_NOT_SUPPORTED', 'Automatic subjects require automatic methods');
+    return automaticLesson(input, aiService, Object.fromEntries(Object.entries(subjectDefinitions).map(([id, value]) => [id, value.methods])));
+  }
   const definition = subjectDefinitions[input.subject];
 
   if (!definition) {

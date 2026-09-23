@@ -14,6 +14,7 @@ import { imageRequestSchema, recognizeImage } from './services/recognizeImage.js
 import { generateWithFallback } from './services/modelFallback.js';
 import { solveSubject } from './subjects/registry.js';
 import { questionNumber } from '../public/src/api.js';
+import { tutorPolicy } from './services/tutorPolicy.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,13 +22,13 @@ const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL === 'none'
   ? null : (process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash-lite');
 
-function createDefaultAiService() {
-  if (!process.env.GEMINI_API_KEY) {
+function createDefaultAiService(apiKey = process.env.GEMINI_API_KEY) {
+  if (!apiKey) {
     return null;
   }
 
   const client = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY
+    apiKey
   });
 
   return {
@@ -100,7 +101,12 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
       };
       res.on('close', onClose);
       try {
-        if (!aiService) {
+        const personalKey = req.get('x-gemini-api-key') || '';
+        if (personalKey && !/^[A-Za-z0-9_-]{20,256}$/.test(personalKey)) {
+          throw Object.assign(new Error('API Key 格式不正確，請在 AI 設定重新輸入。'), { code: 'INVALID_API_KEY', statusCode: 400 });
+        }
+        const selectedService = personalKey ? (services.createPersonalAiService || createDefaultAiService)(personalKey) : aiService;
+        if (!selectedService) {
           const error = new Error('AI service is not configured');
           error.code = 'AI_SERVICE_UNAVAILABLE';
           error.statusCode = 503;
@@ -112,9 +118,14 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
         const requestAiService = {
           models: {
             generateContent(request) {
-              return aiService.models.generateContent({
+              return selectedService.models.generateContent({
                 ...request,
-                config: { ...request.config, abortSignal: controller.signal }
+                config: { ...request.config, systemInstruction: `${tutorPolicy}\n${request.config?.systemInstruction || ''}`, abortSignal: controller.signal }
+              }).catch(error => {
+                const status = error.status ?? error.statusCode;
+                const code = status === 401 || status === 403 ? 'AI_AUTH_FAILED' : status === 429 ? 'AI_QUOTA_EXCEEDED' : status === 503 ? 'AI_UPSTREAM_UNAVAILABLE' : 'AI_UPSTREAM_ERROR';
+                // Never log or return provider messages: they may contain credentials or request content.
+                throw Object.assign(new Error(code), { code, statusCode: [401, 403, 429, 503].includes(status) ? status : 502 });
               });
             }
           }

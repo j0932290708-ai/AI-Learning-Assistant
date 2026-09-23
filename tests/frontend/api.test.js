@@ -25,6 +25,18 @@ afterEach(() => {
   delete globalThis.localStorage;
 });
 
+test('personal keys only go to same-origin AI POSTs, never health, body or redirects', async () => {
+  const calls=[]; const key='test_only_12345678901234567890';
+  const fetchImpl=async(url,options)=>{calls.push({url,options});return{ok:true,json:async()=>({success:true})};};
+  await requestAI('/api/solve',{question:'1+1=?'},{apiKey:key,fetchImpl});
+  assert.equal(calls[0].options.headers,undefined);
+  assert.equal(calls[1].options.headers['x-gemini-api-key'],key);
+  assert.equal(calls[1].options.redirect,'error');
+  assert.doesNotMatch(calls[1].options.body,/test_only/);
+  await assert.rejects(requestAI('https://example.com/api/solve',{}, {apiKey:key,fetchImpl}));
+  assert.equal(calls.length,2);
+});
+
 test('backup round trip merges unique entries without losing originals', () => {
   globalThis.localStorage = createStorage();
   saveQuestionToBank('舊題', '數學', '代數', '2');

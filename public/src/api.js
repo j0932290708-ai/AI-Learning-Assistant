@@ -20,7 +20,8 @@ export function questionNumber(input) {
 // Check the server before sending the expensive AI request. A slow health check
 // can be a sleeping host or network delay; do not label model latency as startup.
 export async function requestAI(endpoint, payload, { signal, onStatus = () => {},
-  fetchImpl = fetch, warmHintMs = 6000, startupMs = 90000, answerMs = 75000 } = {}) {
+  apiKey = '', fetchImpl = fetch, warmHintMs = 6000, startupMs = 90000, answerMs = 75000 } = {}) {
+  if (!['/api/solve', '/api/recognize'].includes(endpoint)) throw new Error('不支援的 AI 服務網址。');
   async function stage(url, options, timeoutMs, warming) {
     const controller = new AbortController();
     const cancel = () => controller.abort();
@@ -53,7 +54,7 @@ export async function requestAI(endpoint, payload, { signal, onStatus = () => {}
   await stage('/health', { method: 'GET' }, startupMs, true);
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   onStatus('伺服器已連線，AI 正在整理內容，請稍候…');
-  return stage(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, answerMs, false);
+  return stage(endpoint, { method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/json', ...(apiKey ? { 'x-gemini-api-key': apiKey } : {}) }, body: JSON.stringify(payload) }, answerMs, false);
 }
 
 export function exportQuestionBank() {

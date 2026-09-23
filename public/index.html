@@ -35,24 +35,22 @@
       </div>
     </header>
 
-    <div class="container">
-      <div class="card subject-card">
-        <h2>📚 選擇科目</h2>
-        <div class="subjects">
-          <button class="subject active" data-subject="math" type="button"><span class="icon">🧮</span>數學</button>
-          <button class="subject" data-subject="chinese" type="button"><span class="icon">📖</span>國文</button>
-          <button class="subject" data-subject="english" type="button"><span class="icon">🇺🇸</span>英文</button>
-          <button class="subject" data-subject="basic_electricity" type="button"><span class="icon">⚡</span>基本電學</button>
-          <button class="subject" data-subject="electronics" type="button"><span class="icon">🔌</span>電子學</button>
-          <button class="subject" data-subject="digital_logic" type="button"><span class="icon">💻</span>數位邏輯</button>
-          <button class="subject" data-subject="programming" type="button"><span class="icon">👨‍💻</span>程式設計</button>
-          <button class="subject" data-subject="microprocessor" type="button"><span class="icon">🤖</span>微處理機</button>
-        </div>
-      </div>
+    <details class="ai-settings">
+      <summary>⚙ AI 設定</summary>
+      <p>預設由網站提供 Google Gemini。也可使用自己的 Gemini API Key；請勿把金鑰貼在題目裡。</p>
+      <label for="personal-api-key">自己的 Gemini API Key（選填）</label>
+      <input id="personal-api-key" type="password" autocomplete="off" spellcheck="false" maxlength="256" placeholder="留空使用網站預設" />
+      <p class="small">按套用後，解題與辨識會透過 HTTPS 將金鑰交給本站後端，用來向 Google Gemini 驗證，使用你的 API 額度。金鑰只留在目前頁面記憶體與當次伺服器請求，不寫入題庫、瀏覽器儲存或應用程式日誌；重新整理或關閉頁面後清除。</p>
+      <div class="actions"><button class="btn primary" type="button" id="apply-ai-settings">套用本次設定</button><button class="btn gray" type="button" id="clear-ai-settings">清除金鑰／使用網站預設</button></div>
+      <p id="ai-settings-status" role="status">目前使用網站預設。</p>
+    </details>
 
+    <div class="container">
       <div class="card question-card">
         <h2>📝 題目</h2>
-        <textarea id="question" aria-label="題目" maxlength="5000" placeholder="把題目貼在這裡，或先在下方辨識圖片……"></textarea>
+        <p class="small">直接輸入或拍下題目，AI 會自動判斷科目與適合的解法。</p>
+        <textarea id="question" aria-label="題目" maxlength="5000" placeholder="輸入題目，或直接貼上截圖（Ctrl+V）……"></textarea>
+        <p class="small">可直接貼上剪貼簿圖片；貼上後先核對預覽，再按「辨識圖片」。手機也可從相簿選圖。</p>
         <div id="previewText" class="small"></div>
         <fieldset class="teaching-modes"><legend>今天想怎麼學？</legend>
           <label><input type="radio" name="teaching-mode" value="direct" checked /> 直接看答案與步驟</label>
@@ -87,14 +85,6 @@
           <label for="recognized-text">辨識結果（可以修改，確認後再填入題目）</label>
           <textarea id="recognized-text" maxlength="5000"></textarea>
           <button class="btn primary" id="apply-recognition-button" type="button">使用這段文字作為題目</button>
-        </div>
-      </div>
-
-      <div class="card method-card" id="methodBox">
-        <h2>🧠 選擇解題方法</h2>
-        <p>每個科目會顯示適合的方法；不確定時可選「AI 自動選擇」。</p>
-        <div class="method-grid" id="method-grid">
-          <button class="method active" data-method="auto" type="button">🤖 AI 自動選擇</button>
         </div>
       </div>
 
@@ -150,6 +140,5 @@
 </dialog>
 </body>
 </html>
-
 
 
