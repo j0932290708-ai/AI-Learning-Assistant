@@ -1,7 +1,10 @@
 // One fallback only for a temporarily unavailable model. Quota/auth errors are not retried.
 export async function generateWithFallback(client, request, model, fallbackModel, onFallback = () => {}) {
   try {
-    return await client.models.generateContent({ ...request, model });
+    const config = model === 'gemini-3.8-flash'
+      ? { ...request.config, thinkingConfig: { thinkingLevel: 'low', ...request.config?.thinkingConfig } }
+      : request.config;
+    return await client.models.generateContent({ ...request, model, config });
   } catch (error) {
     if ((error.status ?? error.statusCode) !== 503
       || !fallbackModel || fallbackModel === model || request.config?.abortSignal?.aborted) {
@@ -14,3 +17,4 @@ export async function generateWithFallback(client, request, model, fallbackModel
     return client.models.generateContent({ ...request, model: fallbackModel, config });
   }
 }
+
