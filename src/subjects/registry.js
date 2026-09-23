@@ -3,7 +3,7 @@ import {
   mathMethodIds
 } from './math/index.js';
 import { guidedLesson, withLearnerFeedback } from '../services/teachingMode.js';
-import { automaticLesson } from '../services/automaticLesson.js';
+import { automaticLesson, inferSubject } from '../services/automaticLesson.js';
 import { exactArithmetic } from '../services/arithmetic.js';
 import {
   createElectricalSolver,
@@ -96,6 +96,14 @@ export async function solveSubject(input, aiService) {
   const arithmetic = exactArithmetic(input);
   if (arithmetic) return arithmetic;
   if (input.subject === 'auto') {
+    const inferred = inferSubject(input.question);
+    if (inferred && subjectDefinitions[inferred]) {
+      const inferredInput = { ...input, subject: inferred };
+      if (input.mode === 'guided') return guidedLesson(inferredInput, aiService);
+      const solver = subjectDefinitions[inferred].createSolver({ aiService: withLearnerFeedback(inferredInput, aiService) });
+      const result = await solver.solve({ subject: subjectDefinitions[inferred].localSubject, method: 'auto', question: input.question });
+      return { ...result, mode: 'direct', subject: inferred };
+    }
     if (input.method !== 'auto') throw new SubjectRegistryError('METHOD_NOT_SUPPORTED', 'Automatic subjects require automatic methods');
     return automaticLesson(input, aiService, Object.fromEntries(Object.entries(subjectDefinitions).map(([id, value]) => [id, value.methods])));
   }
@@ -129,3 +137,4 @@ export async function solveSubject(input, aiService) {
     subject: input.subject
   };
 }
+

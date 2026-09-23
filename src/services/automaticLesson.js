@@ -45,3 +45,18 @@ Recheck from the original question, considering corrections and the learner atte
     throw Object.assign(new Error('AI 回覆格式不完整，請再試一次。'), { code: 'AUTO_LESSON_INVALID', statusCode: 502 });
   }
 }
+
+export function inferSubject(question) {
+  const text = String(question || '').normalize('NFKC');
+  if (/[=＋+−\-*/÷×]|\b(?:solve|calculate|equation|integral|derivative)\b/i.test(text)) return 'math';
+  if (/\b(?:correct|grammar|tense|vocabulary|translate|sentence|cloze|she|he|they|school)\b/i.test(text)
+    && /[A-Za-z]/.test(text)) return 'english';
+  if (/\b(?:python|javascript|typescript|java|c\+\+|debug|function|array|code|程式|程式碼)\b/i.test(text)) return 'programming';
+  if (/(電壓|電流|電阻|歐姆|電路|伏特|安培|Ω|ohm|voltage|current|resistor)/i.test(text)) return 'basic_electricity';
+  if (/(二極體|電晶體|放大器|運算放大|diode|transistor|amplifier)/i.test(text)) return 'electronics';
+  if (/(布林|邏輯閘|真值表|卡諾|boolean|logic gate|truth table)/i.test(text)) return 'digital_logic';
+  if (/(暫存器|組合語言|微處理機|assembly|register|processor)/i.test(text)) return 'microprocessor';
+  if (/(文言|成語|國文|閱讀理解|修辭|字詞)/.test(text)) return 'chinese';
+  return null;
+}
+

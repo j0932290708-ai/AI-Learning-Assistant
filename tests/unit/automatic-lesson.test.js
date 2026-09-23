@@ -1,15 +1,23 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { solveSubject } from '../../src/subjects/registry.js';
+import { inferSubject } from '../../src/services/automaticLesson.js';
 import { createApp } from '../../src/app.js';
 
 test('automatic teaching uses one call, preserves feedback, and returns the detected subject', async () => {
   let calls = 0, request;
-  const service = { models: { generateContent: async r => { calls++; request = r; return { text: JSON.stringify({ subject: 'english', method: 'grammar', steps: ['第三人稱單數使用 goes'], answer: 'She goes to school.' }) }; } } };
+  const service = { models: { generateContent: async r => { calls++; request = r; return { text: JSON.stringify({ subject: 'english', method: 'grammar', steps: ['第三人稱單數使用 goes'], answer: 'She goes to school.', explanation: '主詞 She 為第三人稱單數，現在式動詞加 s。' }) }; } } };
   const result = await solveSubject({ subject: 'auto', method: 'auto', question: 'Correct: She go to school.', feedback: '解釋文法', previousAnswer: '先前答案' }, service);
   assert.equal(calls, 1); assert.equal(result.subject, 'english'); assert.equal(result.mode, 'direct');
   assert.match(request.contents, /解釋文法/); assert.match(request.contents, /先前答案/);
-  assert.ok(request.config.responseJsonSchema.properties.subject.enum.includes('general'));
+});
+
+test('automatic inference routes common English and math prompts before the cross-subject request', () => {
+  assert.equal(inferSubject('Please correct She go to school and explain the grammar.'), 'english');
+  assert.equal(inferSubject('Solve 2x + 3 = 11.'), 'math');
+  assert.equal(inferSubject('What is the voltage across a 6Ω resistor?'), 'basic_electricity');
+  assert.equal(inferSubject('Explain this Python function.'), 'programming');
+  assert.equal(inferSubject('請分析這段文言文'), 'chinese');
 });
 
 test('automatic mode rejects invented subjects, mismatched methods and full-answer guided output', async () => {
@@ -25,7 +33,7 @@ test('automatic mode rejects invented subjects, mismatched methods and full-answ
 
 test('automatic guided HTTP request passes cancellation and returns subject with hints', async () => {
   let request;
-  const service = { models: { generateContent: async r => { request = r; return { text: JSON.stringify({ subject: 'math', method: 'algebra', hints: ['兩邊減去 3'], guidingQuestion: '右邊剩多少？' }) }; } } };
+  const service = { models: { generateContent: async r => { request = r; return { text: JSON.stringify({ hints: ['兩邊減去 3'], guidingQuestion: '右邊剩多少？' }) }; } } };
   const server = createApp({ services: { aiService: service }, logger: { log() {}, error() {} } }).listen(0);
   try {
     const response = await fetch(`http://127.0.0.1:${server.address().port}/api/solve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: '2x+3=11', mode: 'guided' }) });
@@ -34,3 +42,4 @@ test('automatic guided HTTP request passes cancellation and returns subject with
     assert.equal(request.config.abortSignal.aborted, false);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
+
