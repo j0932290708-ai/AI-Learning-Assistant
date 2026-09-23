@@ -123,6 +123,8 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
                 config: { ...request.config, systemInstruction: `${tutorPolicy}\n${request.config?.systemInstruction || ''}`, abortSignal: controller.signal }
               }).catch(error => {
                 const status = error.status ?? error.statusCode;
+                logger.error?.({ requestId: req.requestId, upstreamStatus: Number.isInteger(status) ? status : null,
+                  category: /schema/i.test(String(error.message)) ? 'schema' : /system.?instruction/i.test(String(error.message)) ? 'system-instruction' : 'provider-request' });
                 const code = status === 401 || status === 403 ? 'AI_AUTH_FAILED' : status === 429 ? 'AI_QUOTA_EXCEEDED' : status === 503 ? 'AI_UPSTREAM_UNAVAILABLE' : 'AI_UPSTREAM_ERROR';
                 // Never log or return provider messages: they may contain credentials or request content.
                 throw Object.assign(new Error(code), { code, statusCode: [401, 403, 429, 503].includes(status) ? status : 502 });
