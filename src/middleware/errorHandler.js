@@ -19,6 +19,7 @@ export function errorHandler(err, req, res, next) {
   const code = parserError?.code || err.code
     || (statusCode === 503 ? 'AI_UPSTREAM_UNAVAILABLE' : 'INTERNAL_ERROR');
   const safeServerMessages = {
+    STEP_REPLY_INVALID: '步驟說明格式不完整，請再試一次。',
     AI_AUTH_FAILED: 'Gemini 金鑰無效或沒有使用權限。請檢查 AI 設定；使用網站預設時請聯絡管理者。',
     AI_QUOTA_EXCEEDED: 'Gemini 使用額度已達上限，請稍後再試或檢查你的 API 額度。',
     AI_UPSTREAM_ERROR: 'AI 服務暫時無法完成請求，請稍後再試。',

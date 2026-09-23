@@ -1,4 +1,18 @@
 :root { color-scheme: dark; --board:#163e34; --chalk:#f6f3df; --muted:#bed2c5; --yellow:#f1d887; --wood:#a77b50; }
+.step-heading { display:flex; align-items:baseline; flex-wrap:wrap; justify-content:space-between; gap:8px; }
+.step-heading h3 { margin:18px 0 0; color:var(--yellow); }
+.step-heading span { color:var(--muted); font-size:14px; }
+.study-step { margin:18px 0; padding:18px; border:1px solid #bed2c555; border-left:3px solid var(--yellow); border-radius:8px; min-width:0; overflow-wrap:anywhere; }
+.study-step h4 { margin:0 0 10px; color:var(--yellow); font-size:17px; }
+.study-step textarea { margin:8px 0; min-height:85px; }
+.study-step label { display:block; margin-top:16px; font-size:14px; }
+.step-conversation { margin-top:12px; }
+.learner-turn,.tutor-turn { padding:12px; margin:8px 0; border-radius:6px; }
+.learner-turn { background:#0e2b2580; }
+.tutor-turn { background:#bed2c514; }
+.step-conversation strong { color:var(--yellow); font-size:13px; }
+.step-status { color:var(--yellow); font-size:14px; }
+.step-summary { border-top:1px dashed #bed2c555; margin-top:18px; padding-top:14px; }
 * { box-sizing:border-box; }
 body { margin:0; background:#0e2b25; color:var(--chalk); font-family:"Microsoft JhengHei","PingFang TC",sans-serif; line-height:1.65; border-top:7px solid var(--wood); }
 body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index:-1; background:radial-gradient(ellipse at 20% 10%,#48746238,transparent 65%),repeating-linear-gradient(0deg,transparent 0 39px,#ffffff04 40px); }

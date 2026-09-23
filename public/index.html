@@ -53,10 +53,10 @@
         <p class="small">可直接貼上剪貼簿圖片；貼上後先核對預覽，再按「辨識圖片」。手機也可從相簿選圖。</p>
         <div id="previewText" class="small"></div>
         <fieldset class="teaching-modes"><legend>今天想怎麼學？</legend>
-          <label><input type="radio" name="teaching-mode" value="direct" checked /> 直接看答案與步驟</label>
+          <label><input type="radio" name="teaching-mode" value="direct" checked /> 逐步看解法（可追問）</label>
           <label><input type="radio" name="teaching-mode" value="guided" /> 引導式提示</label>
         </fieldset>
-        <p id="teaching-note" class="small">看完整解法，核對答案與計算過程。</p>
+        <p id="teaching-note" class="small">先看第一步，哪裡不懂就問哪一步；也可以直接查看完整解答。</p>
         <div class="actions">
         <button class="btn primary" id="solve-button" type="button">🚀 開始解題</button>
         <button class="btn gray" id="save-button" type="button">⭐ 收藏</button>
@@ -94,6 +94,7 @@
         <div id="result" class="result" aria-live="polite">
           <p class="small">目前還沒有解題結果。</p>
         </div>
+        <div id="step-tutor" hidden></div>
         <div id="retry-tools" class="hidden">
           <label for="answer-feedback">補充條件、指出錯誤，或寫下你的嘗試</label>
           <textarea id="answer-feedback" maxlength="1000" placeholder="例如：圖中的電阻是 6Ω；或：我先把兩邊減 3，接下來呢？"></textarea>
@@ -140,5 +141,4 @@
 </dialog>
 </body>
 </html>
-
 

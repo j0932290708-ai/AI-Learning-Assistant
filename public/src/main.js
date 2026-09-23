@@ -10,6 +10,7 @@ import {
 } from './api.js';
 import { formatStudyText, skeletonMarkup } from './richText.js';
 import { compressImage, createCropTool } from './imageTools.js';
+import { createStepTutor } from './stepTutor.js';
 
 const state = {
   subject: null,
@@ -54,6 +55,8 @@ const cropTool = createCropTool((image) => useEditedPhoto(image));
 
 const questionInput = document.getElementById('question');
 const resultBox = document.getElementById('result');
+const stepTutor = createStepTutor(document.getElementById('step-tutor'), (payload, options) =>
+  requestAI('/api/step', payload, { ...options, apiKey: personalApiKey }));
 const bankBox = document.getElementById('bank');
 const previewText = document.getElementById('previewText');
 
@@ -180,6 +183,7 @@ function sameRequestSelection(request) {
 }
 
 function invalidateAnswerForInputChange() {
+  if (!sameRequestSelection(state.solvedRequest)) stepTutor.reset();
   retryTools.classList.add('hidden');
   document.getElementById('retry-status').textContent = '';
   visualResult.innerHTML = '<p class="hint">題目或選擇變更後，請重新產生圖解。</p>';
@@ -305,6 +309,7 @@ async function solve() {
   }
 
   state.question = question;
+  stepTutor.reset();
   const previousAnswer = sameRequestSelection(state.solvedRequest) ? state.solvedRequest.responseContext : '';
   state.answer = null;
   state.solvedRequest = null;
@@ -370,8 +375,12 @@ async function solve() {
         ${escapeHtml(methodLabels[data.method || request.method] || data.method || request.method)}
       </div>
 
-      ${formatStructuredAnswer(data)}
+      ${request.mode === 'guided' || isPublicDemo ? formatStructuredAnswer(data) : ''}
     `;
+    if (request.mode !== 'guided' && !isPublicDemo) {
+      if (data.steps?.length) stepTutor.mount(data, request.question, formatStructuredAnswer({ ...data, steps: [] }));
+      else resultBox.innerHTML += formatStructuredAnswer(data);
+    }
     retryTools.classList.remove('hidden');
     retryButton.textContent = request.mode === 'guided' ? '送出我的嘗試／再給提示' : '↻ 重新產生／重新檢查';
     document.getElementById('retry-status').textContent = request.feedback ? '已依補充內容重新檢查，請核對新結果。' : '';
@@ -545,6 +554,7 @@ async function recognizePhoto() {
   recognizedText.value = '';
   photoStatus.textContent = '正在辨識圖片，繁忙時可能需要約一分鐘…';
   state.answer = null; state.solvedRequest = null;
+  stepTutor.reset();
   retryTools.classList.add('hidden');
   resultBox.innerHTML = skeletonMarkup('正在讀取照片中的題目…');
   resultBox.setAttribute('aria-busy', 'true');
@@ -779,6 +789,7 @@ function useEditedPhoto(image, edited = true) {
   }
   state.activeRequest?.controller.abort(); state.activeRequest = null;
   state.answer = null; state.solvedRequest = null;
+  stepTutor.reset();
   retryTools.classList.add('hidden');
   resultBox.innerHTML = '<p class="hint">圖片已準備好，請辨識並核對題目。</p>';
   photoPreview.onload = null;
@@ -808,7 +819,7 @@ function changeTeachingMode(mode) {
   if (!state.activeRequest) resultBox.setAttribute('aria-busy', 'false');
   document.getElementById('teaching-note').textContent = state.mode === 'guided'
     ? '先拿提示、自己試一步；在結果下方寫下你的嘗試，再繼續。'
-    : '看完整解法，核對答案與計算過程。';
+    : '先看第一步，哪裡不懂就問哪一步；也可以直接查看完整解答。';
 }
 
 function handleQuestionInput() {

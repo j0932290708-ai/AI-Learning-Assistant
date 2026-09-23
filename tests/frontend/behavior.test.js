@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import { escapeHtml, normalizeQuestion, questionNumber } from '../../public/src/api.js';
 import { formatStudyText, skeletonMarkup } from '../../public/src/richText.js';
 import { compressImage } from '../../public/src/imageTools.js';
+import { createStepTutor } from '../../public/src/stepTutor.js';
 
 // Run the real UI handlers with only the DOM surface they use.
 function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
@@ -28,7 +29,7 @@ function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
     navigator: {}, addEventListener() {}, console: { error() {} },
     setTimeout, clearTimeout, AbortController, fetch: fetchImpl,
     escapeHtml, normalizeQuestion, questionNumber, loadQuestionBank: () => [],
-    formatStudyText, skeletonMarkup, createCropTool: () => ({ open() {}, close() {} }),
+    formatStudyText, skeletonMarkup, createStepTutor, createCropTool: () => ({ open() {}, close() {} }),
     compressImage: (image, rect) => compressImage(image, rect, () => context.document.createElement('canvas')),
     requestAI: async (url, payload, options) => {
       const response = await fetchImpl(url, { body: JSON.stringify(payload), signal: options.signal });
@@ -58,6 +59,24 @@ test('automatic subject is displayed and saved without changing the next request
   ui.element('answer-feedback').value = '再解釋一次';
   await ui.run('solve()');
   assert.match(calls[1].previousAnswer, /She goes/); assert.equal(calls[1].subject, 'auto');
+});
+
+test('direct solve mounts a progressive reader and changing the problem clears its discussion', async () => {
+  const calls = [];
+  const ui = loadUi(async (url, options) => {
+    calls.push({ url, body: JSON.parse(options.body) });
+    return { ok: true, json: async () => url === '/api/step'
+      ? ({ success: true, reply: '因為兩邊要保持相等' })
+      : ({ success: true, subject: 'math', method: 'algebra', steps: ['先減去 3', '再除以 2'], answer: 'x=4' }) };
+  });
+  ui.element('question').value = '2x+3=11'; await ui.run('solve()');
+  assert.match(ui.element('step-tutor').innerHTML, /先減去 3/);
+  assert.doesNotMatch(ui.element('step-tutor').innerHTML, /再除以 2|x=4/);
+  await ui.run("stepTutor.ask(0, '為什麼？')");
+  assert.equal(calls[1].url, '/api/step'); assert.equal(calls[1].body.question, '2x+3=11');
+  ui.element('question').value = 'new problem'; ui.run('handleQuestionInput()');
+  assert.equal(ui.element('step-tutor').hidden, true);
+  assert.equal(ui.element('step-tutor').innerHTML, '');
 });
 
 test('AI truth table displays every input and output row without executing HTML', () => {
