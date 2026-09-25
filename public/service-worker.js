@@ -1,6 +1,6 @@
 const CACHE_PREFIX = `ai-learning-assistant:${self.registration.scope}:`;
 // Increment this version whenever app-shell HTML, CSS or JS changes.
-const CACHE_NAME = `${CACHE_PREFIX}v14`;
+const CACHE_NAME = `${CACHE_PREFIX}v15`;
 const APP_SHELL = [
   './',
   './index.html',

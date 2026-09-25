@@ -11,7 +11,15 @@ export function createDiscussionPanel(root, request, options = {}) {
     if (!image || !/^image\/(png|jpeg|webp)$/.test(image.mimeType) || !/^[A-Za-z0-9+/]*={0,2}$/.test(image.data)) return '';
     return `<div class="discussion-image"><img alt="此討論保存的原材料${rect ? '，黃框為旁支位置' : ''}" src="data:${image.mimeType};base64,${image.data}" />${rect ? `<span class="discussion-region" style="left:${Number(rect.x) * 100}%;top:${Number(rect.y) * 100}%;width:${Number(rect.width) * 100}%;height:${Number(rect.height) * 100}%"></span>` : ''}</div>`;
   };
+  let renderedKey = '';
   function render({ record: r, selected, entries, notice, busy, reviewing }) {
+    const key = `${r?.id || ''}:${selected}`, sameView = key === renderedKey;
+    const focused = root.ownerDocument?.activeElement;
+    const caret = sameView && root.contains?.(focused) && focused?.tagName === 'TEXTAREA'
+      ? { id: focused.id, start: focused.selectionStart, end: focused.selectionEnd } : null;
+    const opened = sameView ? [...(root.querySelectorAll?.('details[open]') || [])].map(d => d.querySelector('summary')?.textContent) : [];
+    const savedChoice = root.querySelector?.('#discussion-saved')?.value;
+    renderedKey = key;
     const branch = r?.branches.find(b => b.id === selected), chat = branch || r?.main;
     root.innerHTML = `<h2>🌿 主線與旁支討論</h2><p class="small">旁支只在你按「開啟旁支」時建立。題目、原圖與對話自動存在此瀏覽器，清除網站資料會遺失；匯出可保留可閱讀的 JSON 紀錄。此處不更新長期個人知識，也不判定是否學會。</p>
       <label for="discussion-saved">接續已保存的討論</label><div class="actions"><select id="discussion-saved"><option value="">選擇題目…</option>${entries.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.question.slice(0, 65))}</option>`).join('')}</select>${btn('resume', '開啟已保存討論')}</div>
@@ -30,6 +38,9 @@ export function createDiscussionPanel(root, request, options = {}) {
       ${field('draft', branch ? '在這個旁支繼續問' : '接著問主線', chat.draft)}${btn('ask', busy ? 'AI 回覆中…' : '送出問題', busy)}
       <p role="status">${escapeHtml(chat.status)}</p><p class="small">按送出／檢查時，原題、必要原圖、此對話與上述背景會送至本站及 Google Gemini。返回或切換不會送出請求。</p>
       ${branch ? `<details class="discussion-transfer"><summary>選擇要帶回主線的內容</summary><p>自行填寫或從上方複製需要的片段；未填寫的內容不會自動帶回。</p>${field('conclusion', '重要結論', branch.transfer.conclusion, 220)}${field('unresolved', '仍未釐清的問題', branch.transfer.unresolved, 220)}${field('evidence', '我的嘗試／證據', branch.transfer.evidence, 220)}${field('correction', '需要修正的地方、理由與影響範圍', branch.transfer.correction, 220)}${btn('transfer', '只帶回以上內容')}</details>` : ''}`}`;
+    for (const detail of root.querySelectorAll?.('details') || []) if (opened.includes(detail.querySelector('summary')?.textContent)) detail.open = true;
+    if (savedChoice) { const select = root.querySelector?.('#discussion-saved'); if (select) select.value = savedChoice; }
+    if (caret) { const input = root.ownerDocument.getElementById(caret.id); if (input) { input.focus({ preventScroll: true }); input.setSelectionRange(caret.start, caret.end); } }
   }
   const session = createDiscussionSession({ request, store: options.store || createDiscussionStore(), onChange: render,
     onSaveStatus(message) { const status = root.querySelector?.('#discussion-save-status'); if (status) status.textContent = message; },

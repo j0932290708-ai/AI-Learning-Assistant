@@ -102,3 +102,10 @@ test('autosave failure updates its status callback without rerendering the focus
   app.edit('draft','留下草稿');await app.flush();assert.equal(renders,before);
   assert.match(messages.at(-1),/尚未保存.*disk full/);assert.equal(app.view().record.main.draft,'留下草稿');
 });
+test('opening a branch does not rerender the editor after its asynchronous save completes',async()=>{
+  let finish, renders=0;const store=memoryStore();const app=createDiscussionSession({store,request:async()=>({reply:'a'}),onChange:()=>renders++});
+  app.start(lesson,'q',null,reader);await app.flush();
+  const originalPut=store.put;store.put=async(...args)=>{await new Promise(resolve=>{finish=resolve;});return originalPut(...args);};
+  app.open(source,reader);const afterOpen=renders;await Promise.resolve();await Promise.resolve();
+  finish();await app.flush();assert.equal(renders,afterOpen);
+});

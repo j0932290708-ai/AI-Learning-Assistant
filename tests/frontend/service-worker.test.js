@@ -23,7 +23,7 @@ function worker(fetchImpl = async () => { throw new Error('offline'); }) {
   }, caches: {
     open: async () => cache,
     keys: async () => ['focus-clock-v1', 'ai-learning-assistant-v3',
-      ...[3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((version) => `ai-learning-assistant:${scope}:v${version}`),
+      ...[3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((version) => `ai-learning-assistant:${scope}:v${version}`),
       'ai-learning-assistant:https://example.com/other/:v3'],
     delete: async (name) => { deleted.push(name); }
   }, fetch: async (request, options) => {
@@ -51,7 +51,7 @@ test('activation removes only this app old caches, preserving other sites and cu
   w.handlers.activate({ waitUntil: (promise) => { pending = promise; } });
   await pending;
   assert.deepEqual(w.deleted, ['ai-learning-assistant-v3',
-    ...[3, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((version) => `ai-learning-assistant:${scope}:v${version}`)]);
+    ...[3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((version) => `ai-learning-assistant:${scope}:v${version}`)]);
 });
 
 test('installation fetches a fresh complete shell and caches valid responses', async () => {

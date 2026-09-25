@@ -15,6 +15,7 @@ export function createDiscussionSession({ request, store, onChange = () => {}, o
   function save(record) {
     clearTimeout(timers.get(record.id)); timers.delete(record.id);
     record.updatedAt = new Date().toISOString();
+    entries = [{ id: record.id, question: record.question, updatedAt: record.updatedAt }, ...entries.filter(e => e.id !== record.id)];
     const snapshot = copy(record);
     const work = (saves.get(record.id) || Promise.resolve()).catch(() => {}).then(async () => {
       const version = await store.put(snapshot, versions.get(record.id) || 0);
@@ -34,7 +35,7 @@ export function createDiscussionSession({ request, store, onChange = () => {}, o
       lesson: copy(lesson), image: image ? copy(image) : null, reader: reader || null, revision: 1,
       branches: [], main: channel(), transfers: [], revisions: [], background: '', proposal: null };
     live.set(current.id, current);
-    selected = 'main'; notice = '正在保存…'; void save(current).then(emit); emit(); return current.id;
+    selected = 'main'; notice = '正在保存…'; void save(current); emit(); return current.id;
   }
   function detach() { restoreSequence++; current = null; selected = 'main'; emit(); }
   async function resume(recordId) {
@@ -62,7 +63,7 @@ export function createDiscussionSession({ request, store, onChange = () => {}, o
       notes: current.transfers.map(t => t.text), title: source.kind === 'step' ? `第 ${source.index + 1} 步` : source.kind === 'image' ? '圖片圈選' : source.text.slice(0, 32),
       transfer: { conclusion: '', unresolved: '', evidence: '', correction: '' } };
     current.branches.push(branch); selected = branch.id;
-    void save(current).then(emit); emit(); return branch.id;
+    void save(current); emit(); return branch.id;
   }
   function select(branchId = 'main') {
     if (current && (branchId === 'main' || current.branches.some(b => b.id === branchId))) { selected = branchId; emit(); }
@@ -110,7 +111,7 @@ export function createDiscussionSession({ request, store, onChange = () => {}, o
     current.transfers.push({ id: id(), branchId: branch.id, fromRevision: branch.revision, toRevision: current.revision, text, needsReview: Boolean(branch.transfer.correction.trim()) });
     selected = 'main'; current.proposal = null;
     current.main.status = '已帶回選定筆記，尚未更改主解法。可以接著問主線，或檢查修正建議。';
-    void save(current).then(emit); emit();
+    void save(current); emit();
   }
   async function review() {
     if (!current || !current.transfers.length) return;
@@ -132,7 +133,7 @@ export function createDiscussionSession({ request, store, onChange = () => {}, o
     current.lesson = { subject: current.subject, method: current.lesson.method, mode: 'direct', steps: p.steps, answer: p.answer, explanation: p.explanation };
     current.mode = 'direct'; current.revision++; current.main = channel(); current.proposal = null;
     current.reader = null;
-    onAdopt(copy(current)); void save(current).then(emit); emit();
+    onAdopt(copy(current)); void save(current); emit();
   }
   return { view, refresh, start, detach, resume, open, select, edit, ask, transfer, review, adopt, updateReader,
     export: () => current ? JSON.stringify({ format: 'ai-learning-discussion', version: 1, record: current }, null, 2) : '',
