@@ -11,6 +11,7 @@ import {
 import { formatStudyText, skeletonMarkup } from './richText.js';
 import { compressImage, createCropTool } from './imageTools.js';
 import { createStepTutor } from './stepTutor.js';
+import { createDiscussionPanel } from './discussionPanel.js';
 
 const state = {
   subject: null,
@@ -50,13 +51,32 @@ const retryTools = document.getElementById('retry-tools');
 const retryButton = document.getElementById('retry-button');
 const cropButton = document.getElementById('crop-button');
 const restorePhotoButton = document.getElementById('restore-photo-button');
-const cropTool = createCropTool((image) => useEditedPhoto(image));
+let branchImageTarget = null;
+const cropTool = createCropTool((image, rect) => {
+  if (branchImageTarget) {
+    if (discussion.view().record?.id === branchImageTarget) discussion.open({ kind: 'image', rect, text: '原圖框選位置' }, stepTutor.snapshot());
+    branchImageTarget = null;
+  } else useEditedPhoto(image);
+});
 
 
 const questionInput = document.getElementById('question');
 const resultBox = document.getElementById('result');
 const stepTutor = createStepTutor(document.getElementById('step-tutor'), (payload, options) =>
-  requestAI('/api/step', payload, { ...options, apiKey: personalApiKey }));
+  requestAI('/api/step', payload, { ...options, apiKey: personalApiKey }), {
+    onBranch(source, reader) { discussion.open(source, reader); document.getElementById('discussion-panel').scrollIntoView?.({ block: 'start', behavior: 'smooth' }); },
+    onChange(reader) { discussion.updateReader(reader); }
+  });
+const discussion = createDiscussionPanel(document.getElementById('discussion-panel'), (payload, options) =>
+  requestAI('/api/discuss', payload, { ...options, apiKey: personalApiKey }), {
+    getReader: () => stepTutor.snapshot(), onRestore: showDiscussionRecord, onAdopt: showDiscussionRecord,
+    onReturn(source) { document.getElementById(source?.kind === 'step' ? `study-step-title-${source.index}` : 'result')?.scrollIntoView?.({ block: 'center' }); },
+    onSelectImage(record) {
+      if (!record.image) return;
+      branchImageTarget = record.id;
+      cropTool.open(`data:${record.image.mimeType};base64,${record.image.data}`, true);
+    }
+  });
 const bankBox = document.getElementById('bank');
 const previewText = document.getElementById('previewText');
 
@@ -183,7 +203,7 @@ function sameRequestSelection(request) {
 }
 
 function invalidateAnswerForInputChange() {
-  if (!sameRequestSelection(state.solvedRequest)) stepTutor.reset();
+  if (!sameRequestSelection(state.solvedRequest)) { discussion.detach(); stepTutor.reset(); }
   retryTools.classList.add('hidden');
   document.getElementById('retry-status').textContent = '';
   visualResult.innerHTML = '<p class="hint">題目或選擇變更後，請重新產生圖解。</p>';
@@ -266,6 +286,35 @@ function formatStructuredAnswer(data) {
   `;
 }
 
+function showDiscussionRecord(record) {
+  cropTool.close(); branchImageTarget = null;
+  state.activeRequest?.controller?.abort(); state.activeRequest = null;
+  state.recognitionRequest?.controller?.abort(); state.recognitionRequest = null;
+  const data = record.lesson;
+  questionInput.value = record.question; state.question = record.question;
+  state.subject = 'auto'; state.method = 'auto'; state.mode = record.mode;
+  state.answer = data.answer || ''; feedbackInput.value = '';
+  state.solvedRequest = { question: record.question, subject: 'auto', method: 'auto', mode: record.mode,
+    actualSubject: data.subject, actualMethod: data.method, answer: state.answer,
+    responseContext: [...(data.steps || []), data.answer || ''].join('\n').slice(0, 4000) };
+  document.querySelectorAll('input[name="teaching-mode"]').forEach(input => { input.checked = input.value === state.mode; });
+  document.getElementById('teaching-note').textContent = state.mode === 'guided' ? '先給提示，你可以寫下嘗試再繼續問。' : '先看第一步，哪裡不懂就問哪一步；也可以直接查看完整解答。';
+  state.imageData = record.image ? { ...record.image } : null;
+  state.image = null; state.originalPhoto = record.image ? `data:${record.image.mimeType};base64,${record.image.data}` : null;
+  state.appliedRecognition = null;
+  photoPreview.src = state.originalPhoto || ''; photoPreview.style.display = record.image ? 'block' : 'none';
+  recognizeButton.disabled = !record.image; cropButton.disabled = !record.image;
+  restorePhotoButton.disabled = true; recognitionReview.classList.add('hidden');
+  resultBox.innerHTML = `<div class="answer"><strong>目前解法第 ${record.revision} 版</strong><p>${escapeHtml(subjectLabels[data.subject] || data.subject || '綜合學習')}</p></div>`;
+  stepTutor.reset();
+  if (record.mode === 'guided' || !data.steps?.length) resultBox.innerHTML += formatStructuredAnswer(data);
+  else { stepTutor.mount(data, record.question, formatStructuredAnswer({ ...data, steps: [] })); stepTutor.restore(record.reader); }
+  discussion.updateReader(stepTutor.snapshot());
+  solveButton.disabled = false; solveButton.textContent = defaultSolveButtonText; retryButton.disabled = false;
+  retryTools.classList.remove('hidden'); resultBox.setAttribute('aria-busy', 'false');
+  visualResult.innerHTML = '<p class="hint">已切換討論，請重新產生圖解。</p>';
+}
+
 async function solve() {
   if (state.activeRequest || state.recognitionRequest) return;
   const question = normalizeQuestion(
@@ -309,6 +358,7 @@ async function solve() {
   }
 
   state.question = question;
+  discussion.detach();
   stepTutor.reset();
   const previousAnswer = sameRequestSelection(state.solvedRequest) ? state.solvedRequest.responseContext : '';
   state.answer = null;
@@ -381,6 +431,7 @@ async function solve() {
       if (data.steps?.length) stepTutor.mount(data, request.question, formatStructuredAnswer({ ...data, steps: [] }));
       else resultBox.innerHTML += formatStructuredAnswer(data);
     }
+    if (!isPublicDemo) discussion.start({ ...data, mode: request.mode }, request.question, state.imageData, stepTutor.snapshot());
     retryTools.classList.remove('hidden');
     retryButton.textContent = request.mode === 'guided' ? '送出我的嘗試／再給提示' : '↻ 重新產生／重新檢查';
     document.getElementById('retry-status').textContent = request.feedback ? '已依補充內容重新檢查，請核對新結果。' : '';
@@ -554,7 +605,7 @@ async function recognizePhoto() {
   recognizedText.value = '';
   photoStatus.textContent = '正在辨識圖片，繁忙時可能需要約一分鐘…';
   state.answer = null; state.solvedRequest = null;
-  stepTutor.reset();
+  discussion.detach(); stepTutor.reset();
   retryTools.classList.add('hidden');
   resultBox.innerHTML = skeletonMarkup('正在讀取照片中的題目…');
   resultBox.setAttribute('aria-busy', 'true');
@@ -789,7 +840,7 @@ function useEditedPhoto(image, edited = true) {
   }
   state.activeRequest?.controller.abort(); state.activeRequest = null;
   state.answer = null; state.solvedRequest = null;
-  stepTutor.reset();
+  discussion.detach(); stepTutor.reset();
   retryTools.classList.add('hidden');
   resultBox.innerHTML = '<p class="hint">圖片已準備好，請辨識並核對題目。</p>';
   photoPreview.onload = null;
@@ -926,7 +977,7 @@ if (photoInput) {
 }
 
 cameraInput?.addEventListener('change', handlePhotoUpload);
-cropButton.addEventListener('click', () => { if (state.originalPhoto) cropTool.open(state.originalPhoto); });
+cropButton.addEventListener('click', () => { branchImageTarget = null; if (state.originalPhoto) cropTool.open(state.originalPhoto); });
 restorePhotoButton.addEventListener('click', restorePhoto);
 retryButton.addEventListener('click', solve);
 document.querySelectorAll('input[name="teaching-mode"]').forEach((input) => input.addEventListener('change', () => { if (input.checked) changeTeachingMode(input.value); }));
@@ -937,6 +988,7 @@ cameraDialog?.addEventListener('cancel', closeCamera);
 cameraDialog?.addEventListener('close', () => { if (cameraStream) closeCamera(); });
 document.getElementById('system-camera-button')?.addEventListener('click', () => { closeCamera(); cameraInput.click(); });
 addEventListener('pagehide', closeCamera);
+addEventListener('pagehide', () => { void discussion.flush(); });
 document.addEventListener?.('visibilitychange', () => { if (document.hidden) closeCamera(); });
 targetNumberInput?.addEventListener('input', changeTargetNumber);
 document.getElementById('export-bank-button')?.addEventListener('click', downloadBank);

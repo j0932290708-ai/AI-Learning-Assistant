@@ -128,3 +128,16 @@ dialog .dialog-heading h2 { margin:0; }
 .katex-display { overflow-x:auto; overflow-y:hidden; padding:6px 0; max-width:100%; }
 .math-fallback { overflow-wrap:anywhere; color:#ffe399; }.ai-answer code { white-space:pre-wrap; }
 .ai-settings { max-width:1080px; margin:16px auto; padding:14px 20px; border:1px dashed #8aab9277; border-radius:8px; } .ai-settings summary { color:var(--yellow); font-weight:700; } .ai-settings input { display:block; width:100%; max-width:540px; padding:10px; border-radius:6px; background:#f8f6e9; color:#19392e; } .ai-settings label { display:block; margin:10px 0 5px; } @media(max-width:760px) { .ai-settings { margin:12px; } }
+.discussion-card { grid-column: 1 / -1; }
+.discussion-heading { display:flex; gap:1rem; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.discussion-card select { max-width:100%; min-width:0; flex:1; padding:.7rem; background:#fffbed; color:#183f35; border-radius:8px; }
+.discussion-card textarea { min-height:90px; }
+.discussion-card details { margin:1rem 0; padding:1rem; border:1px solid #a8c9b84d; border-radius:12px; }
+.discussion-card summary { cursor:pointer; color:#ffe399; }
+.discussion-anchor,.discussion-notes,.discussion-proposal { padding:1rem; margin:1rem 0; border-left:3px solid #eed58c; background:#ffffff09; border-radius:8px; overflow-wrap:anywhere; }
+.discussion-image { position:relative; display:table; max-width:100%; margin:1rem auto; }
+.discussion-image img { display:block; max-width:100%; max-height:65vh; object-fit:contain; }
+.discussion-region { position:absolute; border:3px solid #ffe399; background:#ffe39925; box-sizing:border-box; pointer-events:none; }
+.discussion-conversation { overflow-wrap:anywhere; }
+.discussion-card .actions { flex-wrap:wrap; }
+.discussion-card button { white-space:normal; }

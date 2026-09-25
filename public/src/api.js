@@ -21,7 +21,7 @@ export function questionNumber(input) {
 // can be a sleeping host or network delay; do not label model latency as startup.
 export async function requestAI(endpoint, payload, { signal, onStatus = () => {},
   apiKey = '', fetchImpl = fetch, warmHintMs = 6000, startupMs = 90000, answerMs = 75000 } = {}) {
-  if (!['/api/solve', '/api/recognize', '/api/step'].includes(endpoint)) throw new Error('不支援的 AI 服務網址。');
+  if (!['/api/solve', '/api/recognize', '/api/step', '/api/discuss'].includes(endpoint)) throw new Error('不支援的 AI 服務網址。');
   async function stage(url, options, timeoutMs, warming) {
     const controller = new AbortController();
     const cancel = () => controller.abort();

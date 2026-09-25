@@ -77,7 +77,7 @@
         <button class="btn gray" id="crop-button" type="button" disabled>✂ 裁切題目</button>
         <button class="btn gray" id="restore-photo-button" type="button" disabled>還原整張</button>
         <p class="small">圖片只在裝置上裁切、壓縮至最長邊 1600 像素。小字請先裁切到單題，確認清楚再辨識。</p>
-        <p class="small">支援 PNG、JPEG、WebP，最大 5 MB。按「辨識圖片」，或選圖後使用照片開始解題，會將圖片送至本站與 Google Gemini；本站不保存圖片。請只拍題目，辨識後先核對文字、數字與圖形條件。</p>
+        <p class="small">支援 PNG、JPEG、WebP，最大 5 MB。按「辨識圖片」，或選圖後使用照片開始解題，會將圖片送至本站與 Google Gemini；伺服器不保存圖片；解題後原圖會隨討論保存在此瀏覽器。請只拍題目，辨識後先核對文字、數字與圖形條件。</p>
         <button class="btn primary" id="recognize-button" type="button" disabled>🔎 辨識圖片</button>
         <button class="btn gray" id="clear-photo-button" type="button">移除圖片</button>
         <div id="photoStatus" role="status" aria-live="polite"></div>
@@ -103,6 +103,8 @@
           <p id="retry-status" role="status"></p>
         </div>
       </div>
+
+      <div class="card discussion-card" id="discussion-panel"></div>
 
       <div class="card visual-card">
         <h2>🎨 題目視覺圖解</h2>

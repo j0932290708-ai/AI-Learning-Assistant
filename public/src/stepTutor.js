@@ -2,7 +2,7 @@ import { escapeHtml } from './api.js';
 import { formatStudyText } from './richText.js';
 
 // One in-memory discussion per solved problem; never persisted with credentials.
-export function createStepTutor(root, request) {
+export function createStepTutor(root, request, options = {}) {
   let lesson = null, visible = 1, history = [], drafts = {}, pending = null, status = '';
   const button = (action, label, index = '', disabled = false) => `<button type="button" class="btn gray" data-step-action="${action}" data-step="${index}" ${disabled ? 'disabled' : ''}>${label}</button>`;
   function render() {
@@ -11,10 +11,11 @@ export function createStepTutor(root, request) {
     const busy = Boolean(pending);
     root.innerHTML = `<div class="step-tutor">
       <div class="step-heading"><h3>一步一步看懂</h3><span>已展開 ${visible} / ${lesson.steps.length} 步</span></div>
-      <p class="small">先看一小步，有疑問就問這一步。對話只保留在本次題目，換題或重新解題會清除。</p>
+      <p class="small">先看一小步，有疑問就問這一步；想深入討論可手動開啟旁支。可從下方已保存討論接續進度。</p>
       ${lesson.steps.slice(0, visible).map((text, i) => `<section class="study-step" aria-labelledby="study-step-title-${i}">
         <h4 id="study-step-title-${i}" tabindex="-1">第 ${i + 1} 步</h4>
         <div class="step-content">${formatStudyText(text)}</div>
+        ${options.onBranch ? button('branch', '🌿 在這一步開啟旁支', i) : ''}
         <div class="actions">${button('why', '為什麼這樣做？', i, busy)}${button('simplify', '看不懂，換個方式說', i, busy)}</div>
         <div class="step-conversation">${history.filter(turn => turn.step === i).map(turn => `<div class="learner-turn"><strong>你的追問</strong><div>${formatStudyText(turn.question)}</div></div><div class="tutor-turn"><strong>這一步的說明</strong><div>${formatStudyText(turn.reply)}</div></div>`).join('')}</div>
         <label for="step-question-${i}">追問第 ${i + 1} 步</label>
@@ -38,7 +39,7 @@ export function createStepTutor(root, request) {
   function next(all = false) {
     if (!lesson || pending) return;
     visible = all ? lesson.steps.length : Math.min(visible + 1, lesson.steps.length);
-    render(); root.querySelector?.(`#study-step-title-${visible - 1}`)?.focus();
+    render(); options.onChange?.(snapshot()); root.querySelector?.(`#study-step-title-${visible - 1}`)?.focus();
   }
   async function ask(index, text) {
     if (!lesson || pending || !Number.isInteger(index) || index < 0 || index >= visible) return;
@@ -59,21 +60,29 @@ export function createStepTutor(root, request) {
       if (controller.signal.aborted || lesson !== activeLesson || pending !== controller) return;
       status = `${error.message} 原有步驟與對話仍保留，可以重試。`;
     } finally {
-      if (pending === controller) { pending = null; render(); root.querySelector?.(`#step-question-${index}`)?.focus(); }
+      if (pending === controller) { pending = null; render(); options.onChange?.(snapshot()); root.querySelector?.(`#step-question-${index}`)?.focus(); }
     }
   }
   root.addEventListener('input', event => {
     const index = event.target.dataset?.stepDraft;
-    if (index !== undefined) drafts[index] = event.target.value;
+    if (index !== undefined) { drafts[index] = event.target.value; options.onChange?.(snapshot()); }
   });
   root.addEventListener('click', event => {
     const target = event.target.closest?.('[data-step-action]');
     if (!target) return;
     const { stepAction: action, step } = target.dataset, index = Number(step);
     if (action === 'next' || action === 'all') next(action === 'all');
+    else if (action === 'branch' && lesson && index < visible) options.onBranch?.({ kind: 'step', index, text: lesson.steps[index] }, snapshot());
     else if (action === 'why') void ask(index, '為什麼這一步要這樣做？請解釋理由。');
     else if (action === 'simplify') void ask(index, '我看不懂這一步，請換個更簡單的方式說明。');
     else if (action === 'ask') void ask(index, drafts[index]);
   });
-  return { mount, reset, next, ask };
+  function snapshot() { return lesson ? { visible, steps: lesson.steps.slice(0, visible), history: history.map(t => ({ ...t })), drafts: { ...drafts } } : null; }
+  function restore(saved) {
+    if (!lesson || !saved) return;
+    visible = Math.min(lesson.steps.length, Math.max(1, Number(saved.visible) || 1));
+    history = Array.isArray(saved.history) ? saved.history.filter(t => Number.isInteger(t.step) && t.step >= 0 && t.step < visible && typeof t.question === 'string' && typeof t.reply === 'string').slice(0, 30) : [];
+    drafts = saved.drafts && typeof saved.drafts === 'object' ? saved.drafts : {}; render();
+  }
+  return { mount, reset, next, ask, snapshot, restore };
 }

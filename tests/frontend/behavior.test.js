@@ -6,6 +6,7 @@ import { escapeHtml, normalizeQuestion, questionNumber } from '../../public/src/
 import { formatStudyText, skeletonMarkup } from '../../public/src/richText.js';
 import { compressImage } from '../../public/src/imageTools.js';
 import { createStepTutor } from '../../public/src/stepTutor.js';
+import { createDiscussionPanel } from '../../public/src/discussionPanel.js';
 
 // Run the real UI handlers with only the DOM surface they use.
 function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
@@ -29,7 +30,9 @@ function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
     navigator: {}, addEventListener() {}, console: { error() {} },
     setTimeout, clearTimeout, AbortController, fetch: fetchImpl,
     escapeHtml, normalizeQuestion, questionNumber, loadQuestionBank: () => [],
-    formatStudyText, skeletonMarkup, createStepTutor, createCropTool: () => ({ open() {}, close() {} }),
+    formatStudyText, skeletonMarkup, createStepTutor,
+    createDiscussionPanel: (root, request, options) => createDiscussionPanel(root, request, { ...options, store: { list: async () => [], put: async (_r, v) => v + 1 } }),
+    createCropTool: () => ({ open() {}, close() {} }),
     compressImage: (image, rect) => compressImage(image, rect, () => context.document.createElement('canvas')),
     requestAI: async (url, payload, options) => {
       const response = await fetchImpl(url, { body: JSON.stringify(payload), signal: options.signal });

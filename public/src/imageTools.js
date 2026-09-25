@@ -75,11 +75,13 @@ export function createCropTool(onApply) {
     try {
       const sx = image.naturalWidth / canvas.width, sy = image.naturalHeight / canvas.height;
       const result = compressImage(image, { x: rect.x * sx, y: rect.y * sy, width: rect.width * sx, height: rect.height * sy });
-      onApply(result); dialog.close();
+      onApply(result, { x: rect.x / canvas.width, y: rect.y / canvas.height, width: rect.width / canvas.width, height: rect.height / canvas.height }); dialog.close();
     } catch (error) { status.textContent = error.message; }
   });
-  return { open(url) {
+  return { open(url, selectionOnly = false) {
     const current = ++version;
+    byId('crop-title').textContent = selectionOnly ? '圈選旁支討論的位置' : '框選這一道題';
+    byId('apply-crop').textContent = selectionOnly ? '在圈選處開啟旁支（不送出 AI）' : '使用裁切圖片';
     status.textContent = '正在開啟圖片…'; byId('apply-crop').disabled = true;
     dialog.showModal();
     const loadingImage = new Image();
