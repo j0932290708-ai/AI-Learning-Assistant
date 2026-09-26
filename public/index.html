@@ -18,8 +18,7 @@
   </head>
   <body data-app-mode="api">
     <header>
-      <div class="brand"><span class="eyebrow">TODAY'S CLASS · 一起學懂</span><h1>AI 全科學習黑板</h1>
-      <p>把題目寫上來，我們一步一步解。</p></div>
+      <div class="brand"><span class="brand-symbol" aria-hidden="true">▤</span><span>學習黑板</span></div>
       <div id="mode-banner" class="mode-banner hidden" role="status"></div>
       <div class="install-area">
         <button id="install-button" class="install-button" type="button">📲 安裝 App</button>
@@ -45,9 +44,15 @@
       <p id="ai-settings-status" role="status">目前使用網站預設。</p>
     </details>
 
-    <div class="container">
+    <section id="workspace-home" class="workspace-home" aria-label="我的學習工作區"><p>正在讀取本機工作區…</p></section>
+    <div id="workspace-toolbar" class="workspace-toolbar" hidden></div>
+    <p id="workspace-status" class="workspace-status" role="status" aria-live="polite"></p>
+    <main id="workspace-study" class="workspace-study" hidden>
+    <aside id="workspace-navigation" class="workspace-navigation" aria-label="材料導覽" hidden></aside>
+    <div class="material-pane">
+      <div class="material-heading"><label for="material-title">目前材料</label><input id="material-title" data-workspace-field="title" maxlength="80" /><label class="completion-check"><input id="material-completed" data-workspace-field="completed" type="checkbox" /> 自己標記完成</label></div>
       <div class="card question-card">
-        <h2>📝 題目</h2>
+        <h2>材料文字／題目</h2>
         <p class="small">直接輸入或拍下題目，AI 會自動判斷科目與適合的解法。</p>
         <textarea id="question" aria-label="題目" maxlength="5000" placeholder="輸入題目，或直接貼上截圖（Ctrl+V）……"></textarea>
         <p class="small">可直接貼上剪貼簿圖片；貼上後先核對預覽，再按「辨識圖片」。手機也可從相簿選圖。</p>
@@ -88,6 +93,10 @@
         </div>
       </div>
 
+    </div>
+    <div class="conversation-pane">
+      <section id="workspace-coach" class="card workspace-coach" aria-label="主導師"></section>
+      <details id="classic-tools" class="classic-tools"><summary>逐步解題與旁支討論</summary>
       <div class="card result-card">
         <h2>📖 解題結果</h2>
         <p class="small">AI 可能出錯，請核對計算、引文與重要觀念；遇到不清楚的條件可補充後再問。</p>
@@ -105,7 +114,10 @@
       </div>
 
       <div class="card discussion-card" id="discussion-panel"></div>
+      </details>
+    </div>
 
+    <details class="workspace-extras"><summary>圖解與複習題庫</summary>
       <div class="card visual-card">
         <h2>🎨 題目視覺圖解</h2>
         <div id="visual-result" class="visual-result" aria-live="polite">
@@ -121,7 +133,8 @@
         <div id="bank"></div>
       </div>
 
-    </div>
+    </details>
+    </main>
   <dialog id="camera-dialog" aria-labelledby="camera-title">
 <div class="dialog-heading"><h2 id="camera-title">拍下這一道題</h2><button class="btn gray" id="close-camera-button" type="button">關閉</button></div>
 <p id="camera-status" role="status" aria-live="polite"></p>

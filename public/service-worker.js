@@ -1,6 +1,6 @@
 const CACHE_PREFIX = `ai-learning-assistant:${self.registration.scope}:`;
 // Increment this version whenever app-shell HTML, CSS or JS changes.
-const CACHE_NAME = `${CACHE_PREFIX}v15`;
+const CACHE_NAME = `${CACHE_PREFIX}v17`;
 const APP_SHELL = [
   './',
   './index.html',
@@ -12,6 +12,8 @@ const APP_SHELL = [
   './src/discussionPanel.js',
   './src/discussionSession.js',
   './src/discussionStore.js',
+  './src/workspaceSession.js',
+  './src/workspaceShell.js',
   "./src/richText.js",
   "./src/imageTools.js",
   "./vendor/katex/katex.min.js",
@@ -106,3 +108,4 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+

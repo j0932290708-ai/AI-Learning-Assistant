@@ -1,10 +1,10 @@
 // Local device only. Credentials and pending requests never enter these records.
-export function createDiscussionStore(factory = globalThis.indexedDB) {
+export function createDiscussionStore(factory = globalThis.indexedDB, databaseName = 'learning-discussions') {
   let opening;
   function db() {
     if (!factory) return Promise.reject(new Error('瀏覽器不支援本機討論保存'));
     return opening ||= new Promise((resolve, reject) => {
-      const request = factory.open('learning-discussions', 1);
+      const request = factory.open(databaseName, 1);
       request.onupgradeneeded = () => request.result.createObjectStore('discussions', { keyPath: 'id' });
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => { opening = null; reject(request.error); };
@@ -22,7 +22,7 @@ export function createDiscussionStore(factory = globalThis.indexedDB) {
   }
   return {
     list: () => transaction('readonly', (store, done) => {
-      const request = store.getAll(); request.onsuccess = () => done(request.result.map(r => ({ id: r.id, question: r.question, updatedAt: r.updatedAt, version: r.version })));
+      const request = store.getAll(); request.onsuccess = () => done(request.result.map(r => ({ id: r.id, question: r.question, name: r.name, materialCount: r.materials?.length, workspaceId: r.workspaceId, materialId: r.materialId, updatedAt: r.updatedAt, version: r.version })));
     }),
     get: id => transaction('readonly', (store, done) => { const request = store.get(id); request.onsuccess = () => done(request.result); }),
     put: (record, expectedVersion = 0) => transaction('readwrite', (store, done, fail) => {

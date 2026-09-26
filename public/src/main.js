@@ -12,6 +12,8 @@ import { formatStudyText, skeletonMarkup } from './richText.js';
 import { compressImage, createCropTool } from './imageTools.js';
 import { createStepTutor } from './stepTutor.js';
 import { createDiscussionPanel } from './discussionPanel.js';
+import { createWorkspaceShell } from './workspaceShell.js';
+let workspace;
 
 const state = {
   subject: null,
@@ -70,6 +72,7 @@ const stepTutor = createStepTutor(document.getElementById('step-tutor'), (payloa
 const discussion = createDiscussionPanel(document.getElementById('discussion-panel'), (payload, options) =>
   requestAI('/api/discuss', payload, { ...options, apiKey: personalApiKey }), {
     getReader: () => stepTutor.snapshot(), onRestore: showDiscussionRecord, onAdopt: showDiscussionRecord,
+    filterEntry: entry => !workspace || workspace.allowedDiscussion(entry),
     onReturn(source) { document.getElementById(source?.kind === 'step' ? `study-step-title-${source.index}` : 'result')?.scrollIntoView?.({ block: 'center' }); },
     onSelectImage(record) {
       if (!record.image) return;
@@ -313,6 +316,7 @@ function showDiscussionRecord(record) {
   solveButton.disabled = false; solveButton.textContent = defaultSolveButtonText; retryButton.disabled = false;
   retryTools.classList.remove('hidden'); resultBox.setAttribute('aria-busy', 'false');
   visualResult.innerHTML = '<p class="hint">已切換討論，請重新產生圖解。</p>';
+  workspace?.capture();
 }
 
 async function solve() {
@@ -358,6 +362,7 @@ async function solve() {
   }
 
   state.question = question;
+  document.getElementById('classic-tools').open = true;
   discussion.detach();
   stepTutor.reset();
   const previousAnswer = sameRequestSelection(state.solvedRequest) ? state.solvedRequest.responseContext : '';
@@ -431,7 +436,10 @@ async function solve() {
       if (data.steps?.length) stepTutor.mount(data, request.question, formatStructuredAnswer({ ...data, steps: [] }));
       else resultBox.innerHTML += formatStructuredAnswer(data);
     }
-    if (!isPublicDemo) discussion.start({ ...data, mode: request.mode }, request.question, state.imageData, stepTutor.snapshot());
+    if (!isPublicDemo) {
+      const discussionId = discussion.start({ ...data, mode: request.mode }, request.question, state.imageData, stepTutor.snapshot(), workspace?.context());
+      workspace?.linkDiscussion(discussionId);
+    }
     retryTools.classList.remove('hidden');
     retryButton.textContent = request.mode === 'guided' ? '送出我的嘗試／再給提示' : '↻ 重新產生／重新檢查';
     document.getElementById('retry-status').textContent = request.feedback ? '已依補充內容重新檢查，請核對新結果。' : '';
@@ -557,6 +565,7 @@ function clearPhoto() {
   photoInput.value = '';
   cameraInput.value = '';
   photoStatus.textContent = '已移除圖片。';
+  workspace?.capture();
 }
 
 function changeTargetNumber({ syncQuestion = true } = {}) {
@@ -848,6 +857,7 @@ function useEditedPhoto(image, edited = true) {
   recognizeButton.disabled = isPublicDemo; recognizeButton.textContent = '🔎 辨識圖片';
   cropButton.disabled = false; restorePhotoButton.disabled = !edited;
   photoStatus.textContent = `已套用圖片（${image.width} × ${image.height}），請重新辨識；尚未上傳。`;
+  workspace?.capture();
 }
 
 function restorePhoto() {
@@ -1002,6 +1012,42 @@ applyRecognitionButton?.addEventListener('click', applyRecognition);
 if (installButton) {
   installButton.addEventListener('click', installApp);
 }
+
+workspace = createWorkspaceShell({
+  request: payload => requestAI('/api/coach', payload, { apiKey: personalApiKey }),
+  flush: () => discussion.flush(),
+  getEditor: () => ({ text: questionInput.value, image: state.imageData, originalPhoto: state.originalPhoto,
+    mode: state.mode, target: targetNumberInput.value, feedback: feedbackInput.value,
+    recognizedText: recognizedText.value, reviewOpen: !recognitionReview.classList.contains('hidden'),
+    discussionId: discussion.view().record?.id || null, scroll: globalThis.scrollY || 0 }),
+  async setEditor(editor, stillCurrent) {
+    closeCamera(); cropTool.close(); branchImageTarget = null;
+    state.activeRequest?.controller?.abort(); state.activeRequest = null;
+    resetPhoto(); discussion.detach(); stepTutor.reset();
+    state.question = editor.text || ''; questionInput.value = state.question;
+    previewText.textContent = state.question ? `目前輸入 ${state.question.length} / ${maxQuestionLength} 個字` : '請輸入題目';
+    state.subject = 'auto'; state.method = 'auto'; state.mode = editor.mode || 'direct';
+    state.answer = null; state.solvedRequest = null; state.appliedRecognition = null;
+    resultBox.innerHTML = '<p class="small">從材料開始，先問主導師一小步，或使用原有逐步解題。</p>';
+    resultBox.setAttribute('aria-busy', 'false'); retryTools.classList.add('hidden');
+    solveButton.disabled = false; solveButton.textContent = defaultSolveButtonText; retryButton.disabled = false;
+    if (editor.discussionId) { await discussion.resume(editor.discussionId); if (!stillCurrent()) return; }
+    document.getElementById('classic-tools').open = Boolean(editor.discussionId);
+    state.imageData = editor.image || null; state.image = null;
+    state.originalPhoto = editor.originalPhoto || (editor.image ? `data:${editor.image.mimeType};base64,${editor.image.data}` : null);
+    photoPreview.onload = null; photoPreview.onerror = null;
+    photoPreview.src = editor.image ? `data:${editor.image.mimeType};base64,${editor.image.data}` : '';
+    photoPreview.style.display = editor.image ? 'block' : 'none';
+    recognizeButton.disabled = !editor.image; cropButton.disabled = !editor.image;
+    restorePhotoButton.disabled = !editor.originalPhoto;
+    document.querySelectorAll('input[name="teaching-mode"]').forEach(input => { input.checked = input.value === state.mode; });
+    targetNumberInput.value = editor.target || ''; feedbackInput.value = editor.feedback || '';
+    recognizedText.value = editor.recognizedText || ''; recognitionReview.classList.toggle('hidden', !editor.reviewOpen);
+    photoStatus.textContent = editor.image ? '已恢復此材料的圖片。' : '';
+    visualResult.innerHTML = '<p class="small">需要時可按「題目圖解」。</p>';
+    requestAnimationFrame(() => { if (stillCurrent()) globalThis.scrollTo?.({ top: editor.scroll || 0, behavior: 'instant' }); });
+  }
+});
 
 if ('serviceWorker' in navigator) {
   addEventListener('load', () => {

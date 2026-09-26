@@ -15,12 +15,12 @@ export function createDiscussionSession({ request, store, onChange = () => {}, o
   function save(record) {
     clearTimeout(timers.get(record.id)); timers.delete(record.id);
     record.updatedAt = new Date().toISOString();
-    entries = [{ id: record.id, question: record.question, updatedAt: record.updatedAt }, ...entries.filter(e => e.id !== record.id)];
+    entries = [{ id: record.id, workspaceId: record.workspaceId, materialId: record.materialId, question: record.question, updatedAt: record.updatedAt }, ...entries.filter(e => e.id !== record.id)];
     const snapshot = copy(record);
     const work = (saves.get(record.id) || Promise.resolve()).catch(() => {}).then(async () => {
       const version = await store.put(snapshot, versions.get(record.id) || 0);
       versions.set(record.id, version);
-      entries = [{ id: record.id, question: record.question, updatedAt: snapshot.updatedAt }, ...entries.filter(e => e.id !== record.id)];
+      entries = [{ id: record.id, workspaceId: record.workspaceId, materialId: record.materialId, question: record.question, updatedAt: snapshot.updatedAt }, ...entries.filter(e => e.id !== record.id)];
       if (current === record) { notice = '已保存於此瀏覽器。'; onSaveStatus(notice); }
     }).catch(error => { if (current === record) { notice = `尚未保存：${error.message}。請先匯出備份。`; onSaveStatus(notice); } });
     saves.set(record.id, work); return work;
@@ -29,9 +29,9 @@ export function createDiscussionSession({ request, store, onChange = () => {}, o
     if (current === record) { notice = '正在保存…'; onSaveStatus(notice); }
     clearTimeout(timers.get(record.id)); timers.set(record.id, setTimeout(() => { void save(record); }, 250));
   }
-  function start(lesson, question, image, reader) {
+  function start(lesson, question, image, reader, scope = {}) {
     restoreSequence++;
-    current = { id: id(), question, subject: lesson.subject || 'general', mode: lesson.mode || 'direct',
+    current = { id: id(), workspaceId: scope.workspaceId, materialId: scope.materialId, question, subject: lesson.subject || 'general', mode: lesson.mode || 'direct',
       lesson: copy(lesson), image: image ? copy(image) : null, reader: reader || null, revision: 1,
       branches: [], main: channel(), transfers: [], revisions: [], background: '', proposal: null };
     live.set(current.id, current);
@@ -140,3 +140,4 @@ export function createDiscussionSession({ request, store, onChange = () => {}, o
     flush: async () => { for (const recordId of timers.keys()) { void save(live.get(recordId)); } await Promise.all([...saves.values()]); },
     dismissProposal() { if (current) { current.proposal = null; void save(current); emit(); } } };
 }
+

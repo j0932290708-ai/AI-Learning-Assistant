@@ -13,6 +13,7 @@ export function createDiscussionPanel(root, request, options = {}) {
   };
   let renderedKey = '';
   function render({ record: r, selected, entries, notice, busy, reviewing }) {
+    if (options.filterEntry) entries = entries.filter(options.filterEntry);
     const key = `${r?.id || ''}:${selected}`, sameView = key === renderedKey;
     const focused = root.ownerDocument?.activeElement;
     const caret = sameView && root.contains?.(focused) && focused?.tagName === 'TEXTAREA'

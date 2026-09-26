@@ -30,7 +30,7 @@ function loadUi(fetchImpl = async () => ({ ok: true, json: async () => ({
     navigator: {}, addEventListener() {}, console: { error() {} },
     setTimeout, clearTimeout, AbortController, fetch: fetchImpl,
     escapeHtml, normalizeQuestion, questionNumber, loadQuestionBank: () => [],
-    formatStudyText, skeletonMarkup, createStepTutor,
+    formatStudyText, skeletonMarkup, createStepTutor, createWorkspaceShell: () => undefined,
     createDiscussionPanel: (root, request, options) => createDiscussionPanel(root, request, { ...options, store: { list: async () => [], put: async (_r, v) => v + 1 } }),
     createCropTool: () => ({ open() {}, close() {} }),
     compressImage: (image, rect) => compressImage(image, rect, () => context.document.createElement('canvas')),
