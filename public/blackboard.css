@@ -195,3 +195,26 @@ body[data-learning-view="conversation"] .material-pane { font-size:13px; }
 @media(min-width:1000px) { .ai-settings { margin-left:auto; margin-right:auto; } }
 @media(max-width:1100px) { .workspace-study,body[data-learning-view="conversation"] .workspace-study { grid-template-columns:145px minmax(0,1fr) minmax(300px,1fr); padding:12px 16px; gap:12px; }.card { padding:16px; } }
 @media(max-width:860px) { .workspace-study,body[data-learning-view="conversation"] .workspace-study { display:flex; flex-direction:column; }.workspace-navigation { position:static; max-height:none; width:100%; }.workspace-navigation nav { display:flex; overflow:auto; gap:6px; }.material-tab { width:auto; min-width:110px; }.material-nav-heading { flex-direction:row; align-items:center; justify-content:space-between; }.material-pane,.conversation-pane,.workspace-extras { width:100%; }body[data-learning-view="conversation"] .conversation-pane { order:1; }body[data-learning-view="conversation"] .material-pane { order:2; }.workspace-extras { order:3; }.workspace-home { margin-top:24px; padding:0 18px; }.home-heading h1 { font-size:26px; }.workspace-toolbar { padding:12px 16px 0; }.workspace-status { padding:0 16px; }header { padding:12px 16px; }.coach-history { max-height:none; }.workspace-location input { width:200px; } }
+
+/* Original image stays separate from student and AI vector annotations. */
+.annotation-board { min-width: 0; }
+.ink-toolbar, .ink-settings, .ink-layers { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:12px 0; }
+.ink-toolbar button[aria-pressed="true"] { background:#355c46; color:#fffdf1; border-color:#355c46; }
+.ink-settings label { display:flex; flex-direction:column; gap:4px; }
+.ink-settings .ink-text { flex:1; min-width:170px; }
+.ink-layers label { display:flex; align-items:center; gap:4px; font-size:.85rem; }
+.ink-layers input { width:auto; }
+.ink-viewport { width:100%; max-height:65vh; min-height:160px; overflow:auto; background:#e8e9df; border:1px solid #b8c6b1; border-radius:12px; overscroll-behavior:contain; }
+.ink-surface { display:block; max-width:none; touch-action:none; user-select:none; }
+.ink-surface [data-ink-ai], .ink-surface [data-ink-draft] { pointer-events:none; }
+.ink-surface [data-ink-id] { pointer-events:visiblePainted; }
+.ink-surface [data-ink-ai] [data-ink-id], .ink-surface [data-ink-draft] [data-ink-id] { pointer-events:none; }
+.annotation-board [data-ink-status] { color:#355c46; font-weight:600; }
+.annotation-board [data-ink-explanation] { white-space:pre-wrap; border-left:3px solid #7950a3; padding-left:10px; }
+.annotation-board [data-ink-explanation]:empty { display:none; }
+@media(max-width:600px){ .ink-toolbar .btn { padding:8px 10px; font-size:.85rem; } .ink-viewport { max-height:55vh; } }
+#annotation-board { display:block; }
+#annotation-board[hidden] { display:none; }
+#annotation-board input[type="text"], #annotation-board input:not([type]), #annotation-board select { border:1px solid #b8c6b1; background:#fffef8; border-radius:8px; padding:8px; color:#263d30; max-width:100%; }
+#annotation-board > label { display:block; margin:12px 0; }
+#annotation-board [data-ink-prompt] { display:block; width:100%; }

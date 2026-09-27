@@ -1015,6 +1015,7 @@ if (installButton) {
 
 workspace = createWorkspaceShell({
   request: payload => requestAI('/api/coach', payload, { apiKey: personalApiKey }),
+  annotate: payload => requestAI('/api/annotate', payload, { apiKey: personalApiKey }),
   flush: () => discussion.flush(),
   getEditor: () => ({ text: questionInput.value, image: state.imageData, originalPhoto: state.originalPhoto,
     mode: state.mode, target: targetNumberInput.value, feedback: feedbackInput.value,

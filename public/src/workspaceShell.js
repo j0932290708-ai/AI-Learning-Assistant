@@ -2,12 +2,14 @@ import { escapeHtml } from './api.js';
 import { formatStudyText, skeletonMarkup } from './richText.js';
 import { createDiscussionStore } from './discussionStore.js';
 import { createWorkspaceSession } from './workspaceSession.js';
+import { createAnnotationBoard } from './annotationBoard.js';
 
 export function createWorkspaceShell(options) {
   const $ = id => document.getElementById(id);
   const home = $('workspace-home'), toolbar = $('workspace-toolbar'), navigator = $('workspace-navigation'), coachRoot = $('workspace-coach');
   const study = $('workspace-study'), discussionStore = createDiscussionStore();
   let query = '', legacy = [], activeKey = '', navigation = 0, changing = false;
+  let board;
   const button = (action, text, value = '', disabled = false) => `<button type="button" class="btn gray" data-workspace-action="${action}" data-value="${escapeHtml(value)}" ${disabled ? 'disabled' : ''}>${escapeHtml(text)}</button>`;
   const field = (id, label, value, max = 1000) => `<label for="workspace-${id}">${label}</label><textarea id="workspace-${id}" data-workspace-field="${id}" maxlength="${max}">${escapeHtml(value || '')}</textarea>`;
   function renderHome(entries) {
@@ -21,6 +23,7 @@ export function createWorkspaceShell(options) {
       <p class="storage-note">工作區保存在此瀏覽器，不跨裝置同步。可匯出備份；清除網站資料會遺失。材料目前支援文字及 PNG／JPEG／WebP 圖片。</p>`;
   }
   function render({ current: w, entries, status, busy }) {
+    board?.sync();
     home.hidden = Boolean(w); study.hidden = !w; toolbar.hidden = !w; navigator.hidden = !w;
     $('workspace-status').textContent = status;
     if (!w) { renderHome(entries); return; }
@@ -53,7 +56,8 @@ export function createWorkspaceShell(options) {
   }
   const session = createWorkspaceSession({ store: createDiscussionStore(undefined, 'learning-workspaces'), request: options.request, onChange: render,
     onStatus(text) { $('workspace-status').textContent = text; } });
-  function capture() { if (!changing && session.view().current) session.capture(options.getEditor()); }
+  board = createAnnotationBoard($('annotation-board'), {current: () => ({owner:session.view().current,material:session.material()}), save:record=>session.saveAnnotations(record), request:options.annotate});
+  function capture() { if (!changing && session.view().current) {session.capture(options.getEditor());board.sync();} }
   async function displayMaterial(m) {
     const seq = ++navigation; changing = true;
     try { await options.setEditor(m.editor || {}, () => seq === navigation); }

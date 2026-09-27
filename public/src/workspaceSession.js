@@ -20,9 +20,9 @@ export function createWorkspaceSession({ store, request, onChange = () => {}, on
     }).catch(error => { if (current === record) notify(`尚未保存：${error.message}。請匯出工作區備份。`); });
     queues.set(record.id, queue); return queue;
   }
-  function soon() {
-    if (!current) return;
-    const record = current; notify('正在保存…'); clearTimeout(timers.get(record.id));
+  function soon(record = current) {
+    if (!record) return;
+    if (current === record) notify('正在保存…'); clearTimeout(timers.get(record.id));
     timers.set(record.id, setTimeout(() => void save(record), 250));
   }
   function material() { return current?.materials.find(m => m.id === current.activeMaterialId); }
@@ -98,5 +98,6 @@ export function createWorkspaceSession({ store, request, onChange = () => {}, on
   }
   async function flush() { for (const id of [...timers.keys()]) void save(live.get(id)); await Promise.all([...queues.values()]); }
   return { view, refresh, create, open, home, edit, capture, addMaterial, select, material, linkDiscussion, coach, flush,
+    saveAnnotations: record => soon(record),
     export: () => current ? clone(current) : null };
 }

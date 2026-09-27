@@ -18,6 +18,7 @@ import { tutorPolicy } from './services/tutorPolicy.js';
 import { stepDiscussionSchema, discussStep } from './services/stepDiscussion.js';
 import { discussionSchema, discuss } from './services/discussion.js';
 import { coachSchema, coachWorkspace } from './services/workspaceCoach.js';
+import { annotationRequestSchema, annotateImage } from './services/imageAnnotations.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -75,10 +76,10 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
 
   app.use(requestId);
   // Bound total traffic even if client addresses vary or are hidden by a proxy.
-  app.use(['/api/solve', '/api/recognize', '/api/step', '/api/discuss', '/api/coach'], globalRateLimiter, solveRateLimiter);
+  app.use(['/api/solve', '/api/recognize', '/api/step', '/api/discuss', '/api/coach', '/api/annotate'], globalRateLimiter, solveRateLimiter);
   // Image base64 adds about a third to the decoded 5 MB image limit.
   app.use('/api/recognize', express.json({ limit: '7mb' }));
-  app.use(['/api/discuss', '/api/coach'], express.json({ limit: '8mb' }));
+  app.use(['/api/discuss', '/api/coach', '/api/annotate'], express.json({ limit: '8mb' }));
   app.use(express.json({ limit: '1mb' }));
 
   const publicDir = path.join(__dirname, '../public');
@@ -180,6 +181,7 @@ export function createApp({ services = {}, logger = console, config = {} } = {})
   app.post('/api/step', validateRequest(stepDiscussionSchema), aiHandler(discussStep));
   app.post('/api/discuss', validateRequest(discussionSchema), aiHandler(discuss));
   app.post('/api/coach', validateRequest(coachSchema), aiHandler(coachWorkspace));
+  app.post('/api/annotate', validateRequest(annotationRequestSchema), aiHandler(annotateImage));
 
   app.post(
     '/api/recognize',
